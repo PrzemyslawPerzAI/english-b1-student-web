@@ -1,26 +1,88 @@
-<!doctype html>
-<html lang="pl">
+<!DOCTYPE html>
+<html>
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>English B1 — Student</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <style>
-:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#172033;background:#f5f7fb}
-body{margin:0}.wrap{max-width:900px;margin:auto;padding:28px 18px}
-header{background:#fff;border-radius:20px;padding:24px;box-shadow:0 6px 24px #0001}
-h1{margin:0 0 8px}.muted{color:#64748b}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-top:20px}
-.card{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:22px;min-height:110px}
-.green{background:#effbf3;border-color:#b4e8c5;color:#096f35}
-.badge{display:inline-block;padding:5px 10px;border-radius:999px;background:#e2e8f0;font-size:13px}
-#status{margin-top:18px;padding:14px;border-radius:12px;background:#fff}
+:root{--bg:#f7f9fc;--ink:#10182d;--muted:#60708a;--green:#13a653;--blue:#1478f5;--orange:#ff7614;--purple:#7a31ee}
+*{box-sizing:border-box}html,body{margin:0;width:100%;min-height:100%;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:Arial,sans-serif;overflow-x:hidden}button,a{font:inherit}.hidden{display:none!important}
+.app{width:100%;max-width:none;min-height:100dvh;margin:0;padding:clamp(20px,4.5vw,34px) clamp(16px,3.8vw,28px) 42px}.top{padding:clamp(16px,3.5vw,26px) 2px clamp(24px,5vw,36px)}.toprow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5px}.sun{font-size:clamp(40px,8vw,58px)}.sub{margin-top:12px;color:var(--muted);font-size:clamp(18px,4vw,27px);line-height:1.35}
+.home-actions{display:flex;flex-direction:column;gap:clamp(16px,3.6vw,23px)}.menu-card{width:100%;height:auto;min-height:clamp(170px,20dvh,210px);border:2px solid;border-radius:clamp(20px,4vw,30px);padding:clamp(24px,5.5vw,36px);display:grid;grid-template-columns:clamp(72px,15vw,96px) minmax(0,1fr) 32px;align-items:center;gap:clamp(14px,3vw,22px);text-align:left;text-decoration:none;cursor:pointer}
+.menu-card.green{background:#effbf3;border-color:#b4e8c5;color:#096f35}.menu-card.blue{background:#eef6ff;border-color:#b4d8ff;color:#123d84}.menu-card.orange{background:#fff4e9;border-color:#ffcda5;color:#812b0c}.menu-card.purple{background:#f6efff;border-color:#d8bdff;color:#3b205f}
+.menu-icon{width:clamp(72px,15vw,96px);height:clamp(72px,15vw,96px);border-radius:clamp(14px,3vw,20px);display:flex;align-items:center;justify-content:center;color:#fff;font-size:clamp(32px,6.5vw,44px)}.green .menu-icon{background:var(--green)}.blue .menu-icon{background:var(--blue)}.orange .menu-icon{background:var(--orange)}.purple .menu-icon{background:var(--purple)}
+.menu-copy{min-width:0}.menu-title{display:block;font-size:clamp(25px,5.6vw,36px);line-height:1.08;font-weight:900}.menu-sub{display:block;margin-top:7px;color:#52617a;font-size:clamp(18px,4.1vw,25px);line-height:1.25}.chev{font-size:clamp(34px,7vw,48px)}
+.progress-card{margin-top:clamp(18px,4vw,28px);min-height:clamp(136px,15dvh,166px);background:#fff;border-radius:clamp(20px,4vw,28px);padding:clamp(17px,3.5vw,25px);display:flex;align-items:center;gap:clamp(14px,3vw,20px);box-shadow:0 6px 20px rgba(30,45,75,.08)}.progress-icon{font-size:clamp(36px,7vw,50px)}.progress-title{font-size:clamp(21px,4.7vw,30px);font-weight:900}.progress-sub{margin-top:5px;color:var(--muted);font-size:clamp(15px,3.4vw,21px)}
+.page-head{display:grid;grid-template-columns:52px 1fr 52px;align-items:center;padding:10px 0 22px}.back{width:52px;height:52px;border:0;background:none;color:var(--ink);font-size:46px;line-height:1;cursor:pointer}.page-title{text-align:center;font-size:clamp(32px,7vw,42px);font-weight:900;letter-spacing:-.8px}
+.level-card{margin:14px 0;background:#fff;border:1px solid #e2e8f1;border-radius:20px;overflow:hidden;box-shadow:0 5px 16px rgba(30,45,75,.07)}
+.level-head{width:100%;border:0;display:grid;grid-template-columns:20px minmax(0,1fr) 32px;align-items:center;gap:12px;padding:clamp(20px,4.5vw,28px) clamp(20px,4.5vw,30px);text-align:left;font-size:clamp(25px,5.7vw,34px);font-weight:900;cursor:pointer}.dot{width:17px;height:17px;border-radius:50%}.fold{font-size:28px;text-align:right;line-height:1;transition:transform .18s}.level-card.collapsed .fold{transform:rotate(180deg)}.level-card.collapsed .level-body{display:none}
+.level-a .level-head{background:#eaf9ee;color:#128342}.level-a .dot{background:var(--green)}.level-b1 .level-head{background:#edf5ff;color:#1268da}.level-b1 .dot{background:var(--blue)}.level-b2 .level-head{background:#f4ecff;color:#6e2ddd}.level-b2 .dot{background:var(--purple)}
+.word{padding:clamp(22px,5vw,32px) clamp(20px,4.5vw,30px);border-bottom:1px solid #e5eaf1}.word:last-child{border-bottom:0}.word-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.en{font-size:clamp(31px,7vw,42px);line-height:1.15;font-weight:900}.pl{margin-top:8px;color:#526079;font-size:clamp(23px,5.3vw,32px);line-height:1.3}.ex{margin-top:7px;color:#56657e;font-size:clamp(21px,4.8vw,29px);font-style:italic;line-height:1.45}.speak{width:clamp(42px,9vw,54px);height:clamp(42px,9vw,54px);border:0;border-radius:50%;background:#edf4ff;font-size:clamp(23px,5.2vw,31px);cursor:pointer}
+.scope-switch{display:grid;grid-template-columns:1fr 1fr;background:#e8ecf3;border-radius:14px;padding:3px;margin-bottom:15px}.scope-btn{border:0;background:transparent;color:#4c596f;padding:clamp(15px,3.5vw,20px) 6px;border-radius:11px;font-size:clamp(19px,4.4vw,26px);font-weight:900}.scope-btn.active{background:var(--blue);color:#fff}
+.filter-bar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:17px}.filter-btn{min-height:clamp(58px,8vh,72px);border:2px solid #dbe2ec;background:#fff;color:#6c7688;border-radius:14px;padding:9px 5px;font-size:clamp(16px,3.8vw,22px);font-weight:900}.filter-btn.active::before{content:'✓ ';font-weight:900}.filter-btn.active.filter-a{background:#e8f8ee;border-color:#71d799;color:#147c40}.filter-btn.active.filter-b1{background:#edf5ff;border-color:#7db9ff;color:#1268da}.filter-btn.active.filter-b2{background:#f4ecff;border-color:#c59aff;color:#6e2ddd}
+.loading{text-align:center;padding-top:30vh;color:var(--muted);font-size:20px}.error{margin:20px;padding:18px;border-radius:16px;background:#fff0f0;color:#a33131}
+@media(pointer:coarse){
+.app{width:100%!important;max-width:none!important;margin:0!important}
+.menu-card{width:100%!important}
+}
+@media(max-width:380px){.app{padding-left:14px;padding-right:14px}h1{font-size:36px}.sub{font-size:18px}.menu-card{min-height:126px;padding:18px;grid-template-columns:58px minmax(0,1fr) 22px;gap:13px}.menu-icon{width:58px;height:58px;font-size:28px}.menu-title{font-size:22px}.menu-sub{font-size:16px}.page-title{font-size:30px}.level-head{font-size:21px}.en{font-size:25px}.pl{font-size:19px}.ex{font-size:17px}}
+@media(min-width:1000px) and (pointer:fine){.app{max-width:760px;margin:0 auto;padding-top:30px}.menu-card{min-height:145px}}
 </style>
 </head>
-<body><main class="wrap">
-<header><span class="badge">DEV</span><h1>English B1 — Student</h1><div class="muted">Frontend testowy poza script.google.com</div></header>
-<section class="cards">
-<div class="card green"><h2>Uczę się słówek</h2><p>Lista słówek i nauka.</p></div>
-<div class="card"><h2>Quiz</h2><p>Test wiedzy.</p></div>
-<div class="card"><h2>MP3</h2><p>Ćwiczenia ze słuchu.</p></div>
-<div class="card"><h2>Wszystkie słówka</h2><p>Historia i postęp.</p></div>
+<body>
+<div class="app">
+<div id="loading" class="loading">Ładowanie English B1…</div><div id="error" class="error hidden"></div>
+<section id="home" class="hidden">
+ <div class="top"><div class="toprow"><h1>Cześć<span id="learner"></span>!</h1><span class="sun">☀️</span></div><div class="sub">Kontynuuj swoją naukę angielskiego B1 💪</div></div>
+ <div class="home-actions">
+  <button class="menu-card green" onclick="showWords()"><span class="menu-icon">📖</span><span class="menu-copy"><span class="menu-title">UCZĘ SIĘ SŁÓWEK</span><span class="menu-sub">Słowa z aktualnego setu</span></span><span class="chev">›</span></button>
+  <a id="quizBtn" class="menu-card blue" target="_blank"><span class="menu-icon">🧠</span><span class="menu-copy"><span class="menu-title">QUIZ ZE SŁÓWEK</span><span class="menu-sub">Sprawdź swoją wiedzę</span></span><span class="chev">›</span></a>
+  <a id="audioBtn" class="menu-card orange" target="_blank"><span class="menu-icon">🎧</span><span class="menu-copy"><span class="menu-title">SŁUCHAM MP3</span><span class="menu-sub">Pełna sesja do nauki</span></span><span class="chev">›</span></a>
+  <button class="menu-card purple" onclick="showVocabularyHistory()"><span class="menu-icon">☷</span><span class="menu-copy"><span class="menu-title">WSZYSTKIE SŁÓWKA</span><span class="menu-sub">Zobacz wszystkie wysłane słowa</span></span><span class="chev">›</span></button>
+ </div>
+ <div class="progress-card"><span class="progress-icon">🏆</span><div><div class="progress-title">Twój postęp</div><div id="progressText" class="progress-sub"></div></div></div>
 </section>
-<div id="status"><strong>Test hostingu:</strong> strona działa niezależnie od Google Apps Script.</div>
-</main></body></html>
+<section id="words" class="hidden"><div class="page-head"><button class="back" onclick="showHome()">‹</button><div class="page-title">Słowa z setu</div><span></span></div><div id="wordList"></div></section>
+<section id="vocabularyHistory" class="hidden">
+ <div class="page-head"><button class="back" onclick="showHome()">‹</button><div class="page-title">Wszystkie słówka</div><span></span></div>
+ <div class="scope-switch"><button id="scopeSet" class="scope-btn active" onclick="setVocabularyScope('set')">TEN SET</button><button id="scopeAll" class="scope-btn" onclick="setVocabularyScope('all')">WSZYSTKIE</button></div>
+ <div class="filter-bar"><button id="filterA" class="filter-btn filter-a active" onclick="toggleLevelFilter('a')">UTRWALAM</button><button id="filterB1" class="filter-btn filter-b1 active" onclick="toggleLevelFilter('b1')">CEL B1</button><button id="filterB2" class="filter-btn filter-b2 active" onclick="toggleLevelFilter('b2')">WYZWANIE</button></div>
+ <div id="historyWordList"></div>
+</section>
+</div>
+<script>
+let DATA=null,VOCAB_SCOPE='set',LEVEL_FILTERS={a:true,b1:true,b2:true};
+let COLLAPSED={words:{a:false,b1:false,b2:false},history:{a:false,b1:false,b2:false}};
+// External Student Web: visual shell is identical to the Apps Script version.
+const API_URL = '';
+if (API_URL) {
+  fetch(API_URL, {credentials:'omit'})
+    .then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(init).catch(fail);
+} else {
+  init({learner:'',setWeek:'—',words:[],currentSetWords:[],allSentWords:[],audioUrl:'',quizUrl:'',stats:{quizzesCompleted:0,latestQuizPercent:null,masteredTotal:0}});
+}
+function init(d){DATA=d;loading.classList.add('hidden');home.classList.remove('hidden');learner.textContent=d.learner?' '+d.learner:'';progressText.textContent='Set '+d.setWeek+' • '+d.stats.quizzesCompleted+' quizy • ostatni wynik '+(d.stats.latestQuizPercent==null?'—':d.stats.latestQuizPercent+'%')+' • '+d.stats.masteredTotal+' opanowanych';setupLink('audioBtn',d.audioUrl);setupLink('quizBtn',d.quizUrl)}
+function setupLink(id,url){const e=document.getElementById(id);if(url)e.href=url;else{e.style.opacity='.45';e.style.pointerEvents='none';e.removeAttribute('href')}}
+function groups(){return[{key:'a',title:'UTRWALAM • A1–A2',cls:'level-a'},{key:'b1',title:'CEL B1',cls:'level-b1'},{key:'b2',title:'WYZWANIE • B2+',cls:'level-b2'}]}
+function wordHtml(w){return '<div class="word"><div class="word-head"><span class="en">'+esc(w.word)+'</span><button class="speak" onclick="event.stopPropagation();speakWord(\''+jsq(w.word)+'\')">🔊</button></div><div class="pl">'+esc(w.meaning)+'</div><div class="ex">'+esc(w.example)+'</div></div>'}
+function groupHtml(source,useFilters,context){
+ return groups().map(g=>{if(useFilters&&!LEVEL_FILTERS[g.key])return'';const items=source.filter(w=>levelGroup(w.level)===g.key);if(!items.length)return'';const collapsed=COLLAPSED[context][g.key];return '<div class="level-card '+g.cls+(collapsed?' collapsed':'')+'" data-group="'+g.key+'"><button class="level-head" onclick="toggleGroup(\''+context+'\',\''+g.key+'\')"><span class="dot"></span><span>'+g.title+'</span><span class="fold">⌃</span></button><div class="level-body">'+items.map(wordHtml).join('')+'</div></div>'}).join('')
+}
+function toggleGroup(context,key){COLLAPSED[context][key]=!COLLAPSED[context][key];if(context==='words')renderWords();else renderVocabularyHistory()}
+function renderWords(){wordList.innerHTML=groupHtml(DATA.words||[],false,'words')}
+function showWords(){hidePages();words.classList.remove('hidden');renderWords();window.scrollTo(0,0)}
+function showVocabularyHistory(){hidePages();vocabularyHistory.classList.remove('hidden');VOCAB_SCOPE='set';LEVEL_FILTERS={a:true,b1:true,b2:true};syncVocabularyControls();renderVocabularyHistory();window.scrollTo(0,0)}
+function setVocabularyScope(scope){VOCAB_SCOPE=scope;syncVocabularyControls();renderVocabularyHistory()}
+function toggleLevelFilter(key){LEVEL_FILTERS[key]=!LEVEL_FILTERS[key];syncVocabularyControls();renderVocabularyHistory()}
+function syncVocabularyControls(){scopeSet.classList.toggle('active',VOCAB_SCOPE==='set');scopeAll.classList.toggle('active',VOCAB_SCOPE==='all');filterA.classList.toggle('active',LEVEL_FILTERS.a);filterB1.classList.toggle('active',LEVEL_FILTERS.b1);filterB2.classList.toggle('active',LEVEL_FILTERS.b2)}
+function renderVocabularyHistory(){const source=VOCAB_SCOPE==='set'?(DATA.currentSetWords||[]):(DATA.allSentWords||[]);historyWordList.innerHTML=groupHtml(source,true,'history')||'<div class="sub">Brak słówek dla wybranych filtrów.</div>'}
+function levelGroup(level){const s=String(level||'').toUpperCase().replace(/\s/g,'');if(s.includes('B2')||s.includes('C1')||s.includes('C2'))return'b2';if(s.includes('B1'))return'b1';return'a'}
+function speakWord(word){if(!('speechSynthesis'in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(word);u.lang='en-GB';u.rate=.85;const v=speechSynthesis.getVoices();const p=v.find(x=>String(x.lang).toLowerCase().startsWith('en-gb'))||v.find(x=>String(x.lang).toLowerCase().startsWith('en'));if(p)u.voice=p;speechSynthesis.speak(u)}
+function jsq(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/[\r\n]+/g,' ')}
+function hidePages(){['home','words','vocabularyHistory'].forEach(id=>document.getElementById(id).classList.add('hidden'))}
+function showHome(){if(window.speechSynthesis)speechSynthesis.cancel();hidePages();home.classList.remove('hidden');window.scrollTo(0,0)}
+function fail(e){loading.classList.add('hidden');error.classList.remove('hidden');error.textContent='Nie udało się załadować danych: '+(e.message||e)}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+</script>
+</body></html>
