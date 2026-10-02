@@ -95,13 +95,18 @@ function showQuiz(){
   window.scrollTo(0,0);
 }
 function checkQuiz(){
-  const qs=DATA.quizQuestions||[];let score=0,max=0,answered=0;
-  qs.forEach((q,i)=>{max+=Number(q.points||1);let ok=false;
-    if(q.type==='FILL_GAP'){const el=document.querySelector('input[data-qi="'+i+'"]');const v=String(el&&el.value||'').trim().toLowerCase();if(v)answered++;const accepted=String(q.accepted||'').split(/[;,|]/).map(x=>x.trim().toLowerCase()).filter(Boolean);const corr=String(q.correct||'').trim().toLowerCase();ok=!!v&&(v===corr||accepted.includes(v));}
-    else{const el=document.querySelector('input[name="q'+i+'"]:checked');if(el)answered++;ok=!!el&&el.value===String(q.correct||'').trim().toUpperCase();}
-    if(ok)score+=Number(q.points||1);
+  const qs=DATA.quizQuestions||[],answers=[];let answered=0;
+  qs.forEach((q,i)=>{
+    let v='';
+    if(q.type==='FILL_GAP'){const el=document.querySelector('input[data-qi="'+i+'"]');v=String(el&&el.value||'').trim();}
+    else{const el=document.querySelector('input[name="q'+i+'"]:checked');v=el?el.value:'';}
+    if(v)answered++;answers.push(v);
   });
-  const pct=max?Math.round(score*100/max):0;quizResult.classList.remove('hidden');quizResult.innerHTML='<span class="progress-icon">🏆</span><div><div class="progress-title">Wynik: '+pct+'%</div><div class="progress-sub">'+score+' / '+max+' pkt • odpowiedzi '+answered+' / '+qs.length+'</div></div>';quizResult.scrollIntoView({behavior:'smooth'});
+  checkQuizBtn.disabled=true;checkQuizBtn.textContent='ZAPISUJĘ WYNIK…';
+  fetch('/api/quiz-submit',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({setWeek:DATA.setWeek,batch:DATA.batch,answers})})
+    .then(async r=>{const x=await r.json().catch(()=>({}));if(!r.ok||!x.ok)throw new Error(x.error||'HTTP '+r.status);return x})
+    .then(x=>{quizResult.classList.remove('hidden');quizResult.innerHTML='<span class="progress-icon">🏆</span><div><div class="progress-title">Wynik: '+Math.round(x.percent)+'%</div><div class="progress-sub">'+x.score+' / '+x.maxScore+' pkt • odpowiedzi '+answered+' / '+qs.length+' • zapisano próbę '+x.attemptNo+'</div></div>';quizResult.scrollIntoView({behavior:'smooth'});checkQuizBtn.textContent='WYNIK ZAPISANY';})
+    .catch(e=>{checkQuizBtn.disabled=false;checkQuizBtn.textContent='SPRAWDŹ WYNIK';quizResult.classList.remove('hidden');quizResult.innerHTML='<div><div class="progress-title">Nie zapisano wyniku</div><div class="progress-sub">'+esc(e.message||e)+'</div></div>';});
 }
 function showVocabularyHistory(){hidePages();vocabularyHistory.classList.remove('hidden');VOCAB_SCOPE='set';LEVEL_FILTERS={a:true,b1:true,b2:true};syncVocabularyControls();renderVocabularyHistory();window.scrollTo(0,0)}
 function setVocabularyScope(scope){VOCAB_SCOPE=scope;syncVocabularyControls();renderVocabularyHistory()}
