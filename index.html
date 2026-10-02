@@ -36,13 +36,14 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
  <div class="top"><div class="toprow"><h1>Cześć<span id="learner"></span>!</h1><span class="sun">☀️</span></div><div class="sub">Kontynuuj swoją naukę angielskiego B1 💪</div></div>
  <div class="home-actions">
   <button class="menu-card green" onclick="showWords()"><span class="menu-icon">📖</span><span class="menu-copy"><span class="menu-title">UCZĘ SIĘ SŁÓWEK</span><span class="menu-sub">Słowa z aktualnego setu</span></span><span class="chev">›</span></button>
-  <a id="quizBtn" class="menu-card blue" target="_blank"><span class="menu-icon">🧠</span><span class="menu-copy"><span class="menu-title">QUIZ ZE SŁÓWEK</span><span class="menu-sub">Sprawdź swoją wiedzę</span></span><span class="chev">›</span></a>
+  <button id="quizBtn" class="menu-card blue" onclick="showQuiz()"><span class="menu-icon">🧠</span><span class="menu-copy"><span class="menu-title">QUIZ ZE SŁÓWEK</span><span class="menu-sub">Sprawdź swoją wiedzę</span></span><span class="chev">›</span></button>
   <a id="audioBtn" class="menu-card orange" target="_blank"><span class="menu-icon">🎧</span><span class="menu-copy"><span class="menu-title">SŁUCHAM MP3</span><span class="menu-sub">Pełna sesja do nauki</span></span><span class="chev">›</span></a>
   <button class="menu-card purple" onclick="showVocabularyHistory()"><span class="menu-icon">☷</span><span class="menu-copy"><span class="menu-title">WSZYSTKIE SŁÓWKA</span><span class="menu-sub">Zobacz wszystkie wysłane słowa</span></span><span class="chev">›</span></button>
  </div>
  <div class="progress-card"><span class="progress-icon">🏆</span><div><div class="progress-title">Twój postęp</div><div id="progressText" class="progress-sub"></div></div></div>
 </section>
 <section id="words" class="hidden"><div class="page-head"><button class="back" onclick="showHome()">‹</button><div class="page-title">Słowa z setu</div><span></span></div><div id="wordList"></div></section>
+<section id="quiz" class="hidden"><div class="page-head"><button class="back" onclick="showHome()">‹</button><div class="page-title">Quiz ze słówek</div><span></span></div><div id="quizList"></div><button id="checkQuizBtn" class="menu-card blue" style="min-height:70px;display:block;text-align:center" onclick="checkQuiz()">SPRAWDŹ WYNIK</button><div id="quizResult" class="progress-card hidden"></div></section>
 <section id="vocabularyHistory" class="hidden">
  <div class="page-head"><button class="back" onclick="showHome()">‹</button><div class="page-title">Wszystkie słówka</div><span></span></div>
  <div class="scope-switch"><button id="scopeSet" class="scope-btn active" onclick="setVocabularyScope('set')">TEN SET</button><button id="scopeAll" class="scope-btn" onclick="setVocabularyScope('all')">WSZYSTKIE</button></div>
@@ -73,7 +74,7 @@ loginForm.addEventListener('submit',function(e){
     .catch(e=>{loginMsg.textContent=e.message||'Logowanie nieudane'});
 });
 function init(d){DATA=d;loading.classList.add('hidden');home.classList.remove('hidden');learner.textContent=d.learner?' '+d.learner:'';progressText.textContent='Set '+d.setWeek+' • '+d.stats.quizzesCompleted+' quizy • ostatni wynik '+(d.stats.latestQuizPercent==null?'—':d.stats.latestQuizPercent+'%')+' • '+d.stats.masteredTotal+' opanowanych';setupLink('audioBtn',d.audioUrl);setupLink('quizBtn',d.quizUrl)}
-function setupLink(id,url){const e=document.getElementById(id);if(url)e.href=url;else{e.style.opacity='.45';e.style.pointerEvents='none';e.removeAttribute('href')}}
+function setupLink(id,url){const e=document.getElementById(id);if(!e)return;if(url)e.href=url;else if(e.tagName==='A'){e.style.opacity='.45';e.style.pointerEvents='none';e.removeAttribute('href')}}
 function groups(){return[{key:'a',title:'UTRWALAM • A1–A2',cls:'level-a'},{key:'b1',title:'CEL B1',cls:'level-b1'},{key:'b2',title:'WYZWANIE • B2+',cls:'level-b2'}]}
 function wordHtml(w){return '<div class="word"><div class="word-head"><span class="en">'+esc(w.word)+'</span><button class="speak" onclick="event.stopPropagation();speakWord(\''+jsq(w.word)+'\')">🔊</button></div><div class="pl">'+esc(w.meaning)+'</div><div class="ex">'+esc(w.example)+'</div></div>'}
 function groupHtml(source,useFilters,context){
@@ -82,6 +83,26 @@ function groupHtml(source,useFilters,context){
 function toggleGroup(context,key){COLLAPSED[context][key]=!COLLAPSED[context][key];if(context==='words')renderWords();else renderVocabularyHistory()}
 function renderWords(){wordList.innerHTML=groupHtml(DATA.words||[],false,'words')}
 function showWords(){hidePages();words.classList.remove('hidden');renderWords();window.scrollTo(0,0)}
+function showQuiz(){
+  const qs=DATA.quizQuestions||[];hidePages();quiz.classList.remove('hidden');quizResult.classList.add('hidden');
+  if(!qs.length){quizList.innerHTML='<div class="progress-card">Quiz dla tego batcha nie jest jeszcze gotowy.</div>';checkQuizBtn.classList.add('hidden');return}
+  checkQuizBtn.classList.remove('hidden');
+  quizList.innerHTML=qs.map((q,i)=>{
+    const name='q'+i;
+    if(q.type==='FILL_GAP') return '<div class="level-card"><div class="word"><div class="en">'+esc((i+1)+'. '+q.question)+'</div><input data-qi="'+i+'" style="width:100%;margin-top:14px;padding:14px;font-size:20px;border:1px solid #ccd5e3;border-radius:12px"></div></div>';
+    return '<div class="level-card"><div class="word"><div class="en">'+esc((i+1)+'. '+q.question)+'</div>'+q.options.filter(Boolean).map((o,j)=>'<label style="display:block;padding:10px 0;font-size:20px"><input type="radio" name="'+name+'" data-qi="'+i+'" value="'+['A','B','C','D'][j]+'"> '+esc(o)+'</label>').join('')+'</div></div>'
+  }).join('');
+  window.scrollTo(0,0);
+}
+function checkQuiz(){
+  const qs=DATA.quizQuestions||[];let score=0,max=0,answered=0;
+  qs.forEach((q,i)=>{max+=Number(q.points||1);let ok=false;
+    if(q.type==='FILL_GAP'){const el=document.querySelector('input[data-qi="'+i+'"]');const v=String(el&&el.value||'').trim().toLowerCase();if(v)answered++;const accepted=String(q.accepted||'').split(/[;,|]/).map(x=>x.trim().toLowerCase()).filter(Boolean);const corr=String(q.correct||'').trim().toLowerCase();ok=!!v&&(v===corr||accepted.includes(v));}
+    else{const el=document.querySelector('input[name="q'+i+'"]:checked');if(el)answered++;ok=!!el&&el.value===String(q.correct||'').trim().toUpperCase();}
+    if(ok)score+=Number(q.points||1);
+  });
+  const pct=max?Math.round(score*100/max):0;quizResult.classList.remove('hidden');quizResult.innerHTML='<span class="progress-icon">🏆</span><div><div class="progress-title">Wynik: '+pct+'%</div><div class="progress-sub">'+score+' / '+max+' pkt • odpowiedzi '+answered+' / '+qs.length+'</div></div>';quizResult.scrollIntoView({behavior:'smooth'});
+}
 function showVocabularyHistory(){hidePages();vocabularyHistory.classList.remove('hidden');VOCAB_SCOPE='set';LEVEL_FILTERS={a:true,b1:true,b2:true};syncVocabularyControls();renderVocabularyHistory();window.scrollTo(0,0)}
 function setVocabularyScope(scope){VOCAB_SCOPE=scope;syncVocabularyControls();renderVocabularyHistory()}
 function toggleLevelFilter(key){LEVEL_FILTERS[key]=!LEVEL_FILTERS[key];syncVocabularyControls();renderVocabularyHistory()}
@@ -90,7 +111,7 @@ function renderVocabularyHistory(){const source=VOCAB_SCOPE==='set'?(DATA.curren
 function levelGroup(level){const s=String(level||'').toUpperCase().replace(/\s/g,'');if(s.includes('B2')||s.includes('C1')||s.includes('C2'))return'b2';if(s.includes('B1'))return'b1';return'a'}
 function speakWord(word){if(!('speechSynthesis'in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(word);u.lang='en-GB';u.rate=.85;const v=speechSynthesis.getVoices();const p=v.find(x=>String(x.lang).toLowerCase().startsWith('en-gb'))||v.find(x=>String(x.lang).toLowerCase().startsWith('en'));if(p)u.voice=p;speechSynthesis.speak(u)}
 function jsq(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/[\r\n]+/g,' ')}
-function hidePages(){['home','words','vocabularyHistory'].forEach(id=>document.getElementById(id).classList.add('hidden'))}
+function hidePages(){['home','words','quiz','vocabularyHistory'].forEach(id=>document.getElementById(id).classList.add('hidden'))}
 function showHome(){if(window.speechSynthesis)speechSynthesis.cancel();hidePages();home.classList.remove('hidden');window.scrollTo(0,0)}
 function fail(e){loading.classList.add('hidden');error.classList.remove('hidden');error.textContent='Nie udało się załadować danych: '+(e.message||e)}
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
