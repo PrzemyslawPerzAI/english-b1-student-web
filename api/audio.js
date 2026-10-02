@@ -1,6 +1,6 @@
 const { validSession } = require('./_auth');
 
-const DEV_AUDIO_URL = 'https://script.google.com/macros/s/AKfycbylZfdAmcwnjMad6CHBZ383HI-RSdiTpGpL9isnUrTaHQvMzo2oiYZfNOilyox9zFd6/exec';
+const DEV_AUDIO_URL = process.env.STUDENT_BACKEND_URL || 'https://script.google.com/macros/s/AKfycbylZfdAmcwnjMad6CHBZ383HI-RSdiTpGpL9isnUrTaHQvMzo2oiYZfNOilyox9zFd6/exec';
 
 module.exports = async function handler(req,res){
   if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).json({error:'Method not allowed'});}
@@ -10,7 +10,7 @@ module.exports = async function handler(req,res){
   try{
     const url=DEV_AUDIO_URL+'?api=audio&setWeek='+encodeURIComponent(setWeek)+'&batch='+encodeURIComponent(batch);
     const upstream=await fetch(url,{redirect:'follow'});
-    if(!upstream.ok) throw new Error('DEV audio HTTP '+upstream.status);
+    if(!upstream.ok) throw new Error('Backend audio HTTP '+upstream.status);
     const data=await upstream.json();
     if(!data.ok||!data.base64) return res.status(404).json({error:data.error||'Audio not found'});
     const audio=Buffer.from(data.base64,'base64');
