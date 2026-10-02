@@ -27,6 +27,13 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
 }
 @media(max-width:380px){.app{padding-left:14px;padding-right:14px}h1{font-size:36px}.sub{font-size:18px}.menu-card{min-height:126px;padding:18px;grid-template-columns:58px minmax(0,1fr) 22px;gap:13px}.menu-icon{width:58px;height:58px;font-size:28px}.menu-title{font-size:22px}.menu-sub{font-size:16px}.page-title{font-size:30px}.level-head{font-size:21px}.en{font-size:25px}.pl{font-size:19px}.ex{font-size:17px}}
 @media(min-width:1000px) and (pointer:fine){.app{max-width:760px;margin:0 auto;padding-top:30px}.menu-card{min-height:145px}}
+
+.quiz-meta{margin:0 0 18px;padding:16px 18px;background:#edf5ff;border:1px solid #b4d8ff;border-radius:16px;color:#31527d;font-size:16px;line-height:1.4}
+.quiz-card{margin:14px 0;background:#fff;border:1px solid #e2e8f1;border-radius:20px;padding:22px;box-shadow:0 5px 16px rgba(30,45,75,.07)}
+.quiz-no{color:#1478f5;font-weight:900;font-size:14px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}.quiz-q{font-size:clamp(22px,4.8vw,30px);font-weight:900;line-height:1.25}
+.quiz-option{display:flex;align-items:center;gap:12px;margin-top:10px;padding:14px 16px;border:2px solid #e1e8f2;border-radius:14px;font-size:clamp(17px,3.8vw,22px);cursor:pointer}.quiz-option:has(input:checked){background:#edf5ff;border-color:#1478f5;color:#123d84}.quiz-option input{width:20px;height:20px;accent-color:#1478f5}
+.quiz-input{width:100%;margin-top:14px;padding:15px 16px;font-size:20px;border:2px solid #dbe3ef;border-radius:14px;outline:none}.quiz-input:focus{border-color:#1478f5}
+.quiz-submit{width:100%;margin-top:20px;min-height:64px;border:0;border-radius:16px;background:#1478f5;color:#fff;font-size:21px;font-weight:900;cursor:pointer}.quiz-submit:disabled{opacity:.6}
 </style>
 </head>
 <body>
@@ -43,7 +50,7 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
  <div class="progress-card"><span class="progress-icon">🏆</span><div><div class="progress-title">Twój postęp</div><div id="progressText" class="progress-sub"></div></div></div>
 </section>
 <section id="words" class="hidden"><div class="page-head"><button class="back" onclick="showHome()">‹</button><div class="page-title">Słowa z setu</div><span></span></div><div id="wordList"></div></section>
-<section id="quiz" class="hidden"><div class="page-head"><button class="back" onclick="showHome()">‹</button><div class="page-title">Quiz ze słówek</div><span></span></div><div id="quizList"></div><button id="checkQuizBtn" class="menu-card blue" style="min-height:70px;display:block;text-align:center" onclick="checkQuiz()">SPRAWDŹ WYNIK</button><div id="quizResult" class="progress-card hidden"></div></section>
+<section id="quiz" class="hidden"><div class="page-head"><button class="back" onclick="showHome()">‹</button><div class="page-title">Quiz ze słówek</div><span></span></div><div id="quizList"></div><button id="checkQuizBtn" class="quiz-submit" onclick="checkQuiz()">SPRAWDŹ WYNIK</button><div id="quizResult" class="progress-card hidden"></div></section>
 <section id="vocabularyHistory" class="hidden">
  <div class="page-head"><button class="back" onclick="showHome()">‹</button><div class="page-title">Wszystkie słówka</div><span></span></div>
  <div class="scope-switch"><button id="scopeSet" class="scope-btn active" onclick="setVocabularyScope('set')">TEN SET</button><button id="scopeAll" class="scope-btn" onclick="setVocabularyScope('all')">WSZYSTKIE</button></div>
@@ -84,15 +91,16 @@ function toggleGroup(context,key){COLLAPSED[context][key]=!COLLAPSED[context][ke
 function renderWords(){wordList.innerHTML=groupHtml(DATA.words||[],false,'words')}
 function showWords(){hidePages();words.classList.remove('hidden');renderWords();window.scrollTo(0,0)}
 function showQuiz(){
-  const qs=DATA.quizQuestions||[];hidePages();quiz.classList.remove('hidden');quizResult.classList.add('hidden');
-  if(!qs.length){quizList.innerHTML='<div class="progress-card">Quiz dla tego batcha nie jest jeszcze gotowy.</div>';checkQuizBtn.classList.add('hidden');return}
-  checkQuizBtn.classList.remove('hidden');
-  quizList.innerHTML=qs.map((q,i)=>{
-    const name='q'+i;
-    if(q.type==='FILL_GAP') return '<div class="level-card"><div class="word"><div class="en">'+esc((i+1)+'. '+q.question)+'</div><input data-qi="'+i+'" style="width:100%;margin-top:14px;padding:14px;font-size:20px;border:1px solid #ccd5e3;border-radius:12px"></div></div>';
-    return '<div class="level-card"><div class="word"><div class="en">'+esc((i+1)+'. '+q.question)+'</div>'+q.options.filter(Boolean).map((o,j)=>'<label style="display:block;padding:10px 0;font-size:20px"><input type="radio" name="'+name+'" data-qi="'+i+'" value="'+['A','B','C','D'][j]+'"> '+esc(o)+'</label>').join('')+'</div></div>'
-  }).join('');
-  window.scrollTo(0,0);
+ const qs=DATA.quizQuestions||[];hidePages();quiz.classList.remove('hidden');quizResult.classList.add('hidden');
+ const cfg=DATA.config||{}, labels={GB_PL:'Angielski → polski',PL_GB:'Polski → angielski',CONTEXT:'Kontekst',FILL_GAP:'Uzupełnij lukę'};
+ const types=(cfg.enabledQuizTypes||[]).map(x=>labels[x]||x).join(' • ');
+ if(!qs.length){quizList.innerHTML='<div class="progress-card">Quiz dla tego batcha nie jest jeszcze gotowy.</div>';checkQuizBtn.classList.add('hidden');return}
+ checkQuizBtn.classList.remove('hidden');checkQuizBtn.disabled=false;checkQuizBtn.textContent='SPRAWDŹ I ZAPISZ WYNIK';
+ quizList.innerHTML='<div class="quiz-meta">Set '+DATA.setWeek+' • Batch '+DATA.batch+' • '+qs.length+' pytań'+(types?' • '+esc(types):'')+'</div>'+qs.map((q,i)=>{
+   const title='<div class="quiz-no">Pytanie '+(i+1)+' z '+qs.length+'</div><div class="quiz-q">'+esc(q.question)+'</div>';
+   if(q.type==='FILL_GAP')return '<div class="quiz-card">'+title+'<input class="quiz-input" data-qi="'+i+'" autocomplete="off" placeholder="Wpisz odpowiedź"></div>';
+   return '<div class="quiz-card">'+title+q.options.map((o,j)=>o?'<label class="quiz-option"><input type="radio" name="q'+i+'" data-qi="'+i+'" value="'+['A','B','C','D'][j]+'"><span>'+esc(o)+'</span></label>':'').join('')+'</div>';
+ }).join('');window.scrollTo(0,0);
 }
 function checkQuiz(){
   const qs=DATA.quizQuestions||[],answers=[];let answered=0;
