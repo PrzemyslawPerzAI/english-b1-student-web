@@ -1,9 +1,13 @@
 # English B1 Student Web
 
-Publiczny, statyczny frontend ucznia.
+Frontend ucznia dla projektu English B1.
+
+## Architektura
+- publiczny frontend nie zawiera sekretów;
+- dane ucznia są pobierane wyłącznie przez warstwę serwerową/API;
+- środowisko testowe używa danych DEV;
+- PROD pozostaje odseparowany do czasu zatwierdzonego wdrożenia.
 
 ## Security
-Nie umieszczaj w tym repozytorium sekretów, tokenów, prywatnych arkuszy ani danych administracyjnych.
-
-Etap 1: test hostingu poza `script.google.com`.
-Etap 2: podłączenie minimalnego API DEV po potwierdzeniu dostępu na urządzeniu ucznia.
+Nie umieszczaj w repozytorium tokenów, haseł, prywatnych arkuszy ani danych administracyjnych.
+Sekrety muszą być przechowywane jako szyfrowane zmienne środowiskowe hostingu.
