@@ -21,3 +21,7 @@ After both variables exist, redeploy Production. Protection activates automatica
 - `/api/health` exposes no learner data.
 
 This is suitable for preventing casual public access. It is not a replacement for enterprise identity/access management.
+
+## Audio
+
+Lesson MP3 is fetched server-side through `/api/audio`; the browser does not need direct Google Drive access.
