@@ -47,6 +47,32 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
  .scope-btn{padding:12px 5px;font-size:16px}.filter-btn{min-height:50px;font-size:14px}
  .quiz-meta{font-size:14px;padding:13px 14px}.quiz-card{padding:17px;border-radius:16px}.quiz-q{font-size:20px}.quiz-option{padding:11px 12px;font-size:17px}.quiz-input{padding:12px 13px;font-size:18px}.quiz-submit{min-height:56px;font-size:18px}
 }
+
+/* Compact all secondary views on phones to the same density as the home screen */
+@media(max-width:600px){
+ #words,#quiz,#vocabularyHistory{padding-top:0}
+ #wordList,#historyWordList,#quizList{width:100%}
+ #words .level-card,#vocabularyHistory .level-card{margin:8px 0}
+ #words .level-head,#vocabularyHistory .level-head{padding:13px 15px;font-size:18px}
+ #words .word,#vocabularyHistory .word{padding:14px 15px}
+ #words .en,#vocabularyHistory .en{font-size:22px}
+ #words .pl,#vocabularyHistory .pl{font-size:17px;line-height:1.25}
+ #words .ex,#vocabularyHistory .ex{font-size:15px;line-height:1.35}
+ #words .speak,#vocabularyHistory .speak{width:36px;height:36px;font-size:18px}
+ #vocabularyHistory .scope-switch{margin-bottom:10px;border-radius:11px}
+ #vocabularyHistory .scope-btn{padding:10px 4px;font-size:15px}
+ #vocabularyHistory .filter-bar{gap:5px;margin-bottom:11px}
+ #vocabularyHistory .filter-btn{min-height:43px;padding:6px 3px;border-radius:11px;font-size:12px}
+ #quiz .quiz-meta{margin-bottom:10px;padding:11px 12px;border-radius:12px;font-size:13px}
+ #quiz .quiz-card{margin:9px 0;padding:14px 15px;border-radius:15px}
+ #quiz .quiz-no{font-size:11px;margin-bottom:5px}
+ #quiz .quiz-q{font-size:18px;line-height:1.25}
+ #quiz .quiz-option{gap:9px;margin-top:7px;padding:10px 11px;border-radius:11px;font-size:15px}
+ #quiz .quiz-option input{width:17px;height:17px}
+ #quiz .quiz-input{margin-top:10px;padding:11px 12px;font-size:16px;border-radius:11px}
+ #quiz .quiz-submit{margin-top:13px;min-height:50px;border-radius:13px;font-size:16px}
+ #quiz .progress-card{min-height:82px}
+}
 </style>
 </head>
 <body>
