@@ -1,9 +1,15 @@
+const { validSession } = require('./_auth');
+
 const DEV_DATA_URL = 'https://script.google.com/macros/s/AKfycbylZfdAmcwnjMad6CHBZ383HI-RSdiTpGpL9isnUrTaHQvMzo2oiYZfNOilyox9zFd6/exec?api=student';
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+  if (!validSession(req)) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(401).json({ error: 'Authentication required' });
   }
   try {
     const upstream = await fetch(DEV_DATA_URL, { redirect: 'follow' });
