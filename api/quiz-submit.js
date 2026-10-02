@@ -1,5 +1,5 @@
 const { validSession } = require('./_auth');
-const DEV_SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbylZfdAmcwnjMad6CHBZ383HI-RSdiTpGpL9isnUrTaHQvMzo2oiYZfNOilyox9zFd6/exec';
+const DEV_SUBMIT_URL = process.env.STUDENT_BACKEND_URL || 'https://script.google.com/macros/s/AKfycbylZfdAmcwnjMad6CHBZ383HI-RSdiTpGpL9isnUrTaHQvMzo2oiYZfNOilyox9zFd6/exec';
 
 module.exports = async function handler(req,res){
   if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({error:'Method not allowed'});}
@@ -7,10 +7,10 @@ module.exports = async function handler(req,res){
   try{
     const body=req.body||{};
     const upstream=await fetch(DEV_SUBMIT_URL,{method:'POST',redirect:'follow',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({},body,{action:'submitStudentQuiz'}))});
-    if(!upstream.ok) throw new Error('DEV API HTTP '+upstream.status);
+    if(!upstream.ok) throw new Error('Backend API HTTP '+upstream.status);
     const data=await upstream.json();
     if(!data.ok) return res.status(400).json(data);
     res.setHeader('Cache-Control','no-store');
     return res.status(200).json(data);
-  }catch(err){console.error('quiz-submit',err);return res.status(502).json({error:'Nie udało się zapisać wyniku DEV.'});}
+  }catch(err){console.error('quiz-submit',err);return res.status(502).json({error:'Nie udało się zapisać wyniku.'});}
 };
