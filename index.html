@@ -20,7 +20,7 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
 .word{padding:clamp(22px,5vw,32px) clamp(20px,4.5vw,30px);border-bottom:1px solid #e5eaf1}.word:last-child{border-bottom:0}.word-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.en{font-size:clamp(31px,7vw,42px);line-height:1.15;font-weight:900}.pl{margin-top:8px;color:#526079;font-size:clamp(23px,5.3vw,32px);line-height:1.3}.ex{margin-top:7px;color:#56657e;font-size:clamp(21px,4.8vw,29px);font-style:italic;line-height:1.45}.speak{width:clamp(42px,9vw,54px);height:clamp(42px,9vw,54px);border:0;border-radius:50%;background:#edf4ff;font-size:clamp(23px,5.2vw,31px);cursor:pointer}
 .scope-switch{display:grid;grid-template-columns:1fr 1fr;background:#e8ecf3;border-radius:14px;padding:3px;margin-bottom:15px}.scope-btn{border:0;background:transparent;color:#4c596f;padding:clamp(15px,3.5vw,20px) 6px;border-radius:11px;font-size:clamp(19px,4.4vw,26px);font-weight:900}.scope-btn.active{background:var(--blue);color:#fff}
 .filter-bar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:17px}.filter-btn{min-height:clamp(58px,8vh,72px);border:2px solid #dbe2ec;background:#fff;color:#6c7688;border-radius:14px;padding:9px 5px;font-size:clamp(16px,3.8vw,22px);font-weight:900}.filter-btn.active::before{content:'✓ ';font-weight:900}.filter-btn.active.filter-a{background:#e8f8ee;border-color:#71d799;color:#147c40}.filter-btn.active.filter-b1{background:#edf5ff;border-color:#7db9ff;color:#1268da}.filter-btn.active.filter-b2{background:#f4ecff;border-color:#c59aff;color:#6e2ddd}
-.loading{text-align:center;padding-top:30vh;color:var(--muted);font-size:20px}.error{margin:20px;padding:18px;border-radius:16px;background:#fff0f0;color:#a33131}
+.loading{text-align:center;padding-top:30vh;color:var(--muted);font-size:20px}.login{max-width:420px;margin:20vh auto 0;background:#fff;padding:28px;border-radius:22px;box-shadow:0 6px 20px rgba(30,45,75,.10)}.login h2{margin:0 0 8px;font-size:30px}.login p{color:var(--muted)}.login input{width:100%;font-size:22px;padding:14px;border:1px solid #ccd5e3;border-radius:12px}.login button{width:100%;margin-top:12px;padding:14px;border:0;border-radius:12px;background:var(--blue);color:#fff;font-weight:900;font-size:20px}.login-msg{margin-top:10px;color:#a33131}.error{margin:20px;padding:18px;border-radius:16px;background:#fff0f0;color:#a33131}
 @media(pointer:coarse){
 .app{width:100%!important;max-width:none!important;margin:0!important}
 .menu-card{width:100%!important}
@@ -31,7 +31,7 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
 </head>
 <body>
 <div class="app">
-<div id="loading" class="loading">Ładowanie English B1…</div><div id="error" class="error hidden"></div>
+<div id="loading" class="loading">Ładowanie English B1…</div><div id="error" class="error hidden"></div><section id="login" class="login hidden"><h2>English B1</h2><p>Wpisz rodzinny PIN dostępu.</p><form id="loginForm"><input id="pin" type="password" inputmode="numeric" autocomplete="current-password" aria-label="PIN" required><button type="submit">WEJDŹ</button></form><div id="loginMsg" class="login-msg"></div></section>
 <section id="home" class="hidden">
  <div class="top"><div class="toprow"><h1>Cześć<span id="learner"></span>!</h1><span class="sun">☀️</span></div><div class="sub">Kontynuuj swoją naukę angielskiego B1 💪</div></div>
  <div class="home-actions">
@@ -56,13 +56,22 @@ let DATA=null,VOCAB_SCOPE='set',LEVEL_FILTERS={a:true,b1:true,b2:true};
 let COLLAPSED={words:{a:false,b1:false,b2:false},history:{a:false,b1:false,b2:false}};
 // External Student Web: visual shell is identical to the Apps Script version.
 const API_URL = '/api/student';
-if (API_URL) {
-  fetch(API_URL, {credentials:'omit'})
-    .then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-    .then(init).catch(fail);
-} else {
-  init({learner:'',setWeek:'—',words:[],currentSetWords:[],allSentWords:[],audioUrl:'',quizUrl:'',stats:{quizzesCompleted:0,latestQuizPercent:null,masteredTotal:0}});
+if (API_URL) loadData();
+else init({learner:'',setWeek:'—',words:[],currentSetWords:[],allSentWords:[],audioUrl:'',quizUrl:'',stats:{quizzesCompleted:0,latestQuizPercent:null,masteredTotal:0}});
+
+function loadData(){
+  fetch(API_URL,{credentials:'same-origin'})
+    .then(r=>{if(r.status===401){showLogin();return null}if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
+    .then(d=>{if(d)init(d)}).catch(fail);
 }
+function showLogin(){loading.classList.add('hidden');error.classList.add('hidden');login.classList.remove('hidden');pin.focus()}
+loginForm.addEventListener('submit',function(e){
+  e.preventDefault();loginMsg.textContent='';
+  fetch('/api/login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:pin.value})})
+    .then(async r=>{if(!r.ok){const x=await r.json().catch(()=>({}));throw new Error(x.error||'Logowanie nieudane')}return r.json()})
+    .then(()=>{login.classList.add('hidden');loading.classList.remove('hidden');pin.value='';loadData()})
+    .catch(e=>{loginMsg.textContent=e.message||'Logowanie nieudane'});
+});
 function init(d){DATA=d;loading.classList.add('hidden');home.classList.remove('hidden');learner.textContent=d.learner?' '+d.learner:'';progressText.textContent='Set '+d.setWeek+' • '+d.stats.quizzesCompleted+' quizy • ostatni wynik '+(d.stats.latestQuizPercent==null?'—':d.stats.latestQuizPercent+'%')+' • '+d.stats.masteredTotal+' opanowanych';setupLink('audioBtn',d.audioUrl);setupLink('quizBtn',d.quizUrl)}
 function setupLink(id,url){const e=document.getElementById(id);if(url)e.href=url;else{e.style.opacity='.45';e.style.pointerEvents='none';e.removeAttribute('href')}}
 function groups(){return[{key:'a',title:'UTRWALAM • A1–A2',cls:'level-a'},{key:'b1',title:'CEL B1',cls:'level-b1'},{key:'b2',title:'WYZWANIE • B2+',cls:'level-b2'}]}
