@@ -55,7 +55,7 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
 let DATA=null,VOCAB_SCOPE='set',LEVEL_FILTERS={a:true,b1:true,b2:true};
 let COLLAPSED={words:{a:false,b1:false,b2:false},history:{a:false,b1:false,b2:false}};
 // External Student Web: visual shell is identical to the Apps Script version.
-const API_URL = '';
+const API_URL = '/api/student';
 if (API_URL) {
   fetch(API_URL, {credentials:'omit'})
     .then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
