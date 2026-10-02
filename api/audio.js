@@ -12,11 +12,17 @@ module.exports = async function handler(req,res){
     const upstream=await fetch(url,{redirect:'follow'});
     if(!upstream.ok) throw new Error('DEV audio HTTP '+upstream.status);
     const data=await upstream.json();
-    if(!data.ok||!data.base64) return res.status(404).json({error:data.error||'Audio not found'});
-    const audio=Buffer.from(data.base64,'base64');
-    res.setHeader('Content-Type',data.mimeType||'audio/mpeg');
+    if(!data.ok||!data.fileId) return res.status(404).json({error:data.error||'Audio not found'});
+    const driveUrl='https://drive.usercontent.google.com/download?id='+encodeURIComponent(data.fileId)+'&export=download&confirm=t';
+    const audioUpstream=await fetch(driveUrl,{redirect:'follow'});
+    if(!audioUpstream.ok) throw new Error('Drive audio HTTP '+audioUpstream.status);
+    const contentType=audioUpstream.headers.get('content-type')||data.mimeType||'audio/mpeg';
+    if(!contentType.toLowerCase().startsWith('audio/')) throw new Error('Drive did not return audio content');
+    const audio=Buffer.from(await audioUpstream.arrayBuffer());
+    res.setHeader('Content-Type',contentType);
+    res.setHeader('Content-Length',String(audio.length));
     res.setHeader('Content-Disposition','inline; filename="'+String(data.fileName||'english-b1.mp3').replace(/"/g,'')+'"');
-    res.setHeader('Cache-Control','private, no-store, max-age=0');
+    res.setHeader('Cache-Control','private, max-age=300');
     return res.status(200).send(audio);
   }catch(err){console.error('audio-api',err);return res.status(502).json({error:'Nie udało się pobrać audio DEV.'});}
 };
