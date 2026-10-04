@@ -15,7 +15,8 @@ module.exports = async function handler(req,res){
   if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({error:'Method not allowed'});}
   if(!validSession(req)) return res.status(401).json({error:'Authentication required'});
   try{
-    const body=Object.assign({},req.body||{},{action:'submitStudentQuiz',apiSecret:apiSecret()});
+    const input=req.body||{};
+    const body={setWeek:input.setWeek,batch:input.batch,answers:input.answers,testOnly:input.testOnly===true,action:'submitStudentQuiz',apiSecret:apiSecret()};
     const upstream=await fetch(backendUrl(),{method:'POST',redirect:'follow',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!upstream.ok) throw new Error('Backend API HTTP '+upstream.status);
     const data=await upstream.json();
