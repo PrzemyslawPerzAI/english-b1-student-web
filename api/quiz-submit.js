@@ -1,12 +1,22 @@
 const { validSession } = require('./_auth');
-const DEV_SUBMIT_URL = String(process.env.STUDENT_BACKEND_URL || '').trim().replace(/\\\/+$/,'');
+
+function backendUrl(){
+  const v=String(process.env.STUDENT_BACKEND_URL||'').trim();
+  if(!v)throw new Error('STUDENT_BACKEND_URL is required');
+  return v.replace(/\/+$/,'');
+}
+function apiSecret(){
+  const v=String(process.env.STUDENT_API_SECRET||'').trim();
+  if(!v)throw new Error('STUDENT_API_SECRET is required');
+  return v;
+}
 
 module.exports = async function handler(req,res){
   if(req.method!=='POST'){res.setHeader('Allow','POST');return res.status(405).json({error:'Method not allowed'});}
   if(!validSession(req)) return res.status(401).json({error:'Authentication required'});
   try{
-    const body=Object.assign({},req.body||{});\n    const secret=String(process.env.STUDENT_API_SECRET||'').trim();\n    if(secret) body.apiSecret=secret;
-    const upstream=await fetch(DEV_SUBMIT_URL,{method:'POST',redirect:'follow',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({},body,{action:'submitStudentQuiz'}))});
+    const body=Object.assign({},req.body||{},{action:'submitStudentQuiz',apiSecret:apiSecret()});
+    const upstream=await fetch(backendUrl(),{method:'POST',redirect:'follow',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!upstream.ok) throw new Error('Backend API HTTP '+upstream.status);
     const data=await upstream.json();
     if(!data.ok) return res.status(400).json(data);
