@@ -26,5 +26,6 @@
       ]
     }
   ],
-  "buildCommand": "node tests/validate.cjs && node tests/quiz-submit.cjs"
+  "buildCommand": "node tests/validate.cjs && node tests/quiz-submit.cjs && mkdir -p public && cp index.html security.html public/",
+  "outputDirectory": "public"
 }
