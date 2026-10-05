@@ -84,6 +84,9 @@ async function vmTests(){
   await box.showLearningProgress();assert.equal(e.learningProgressContent.innerHTML,rendered);
   let release;box.fetch=()=>new Promise(resolve=>release=resolve);const pending=box.showLearningProgress();box.returnFromLearningProgress();release(response(200,fixture(false)));await pending;assert.equal(e.home.classList.contains('hidden'),false);assert.equal(e.learningProgress.classList.contains('hidden'),true);
   assert.match(script,/WYNIK ZAPISANY';refreshStudentProgress\(\)/);assert.ok(calls.every(c=>c.options.cache==='no-store'));
+  let releaseOlder;box.fetch=()=>new Promise(resolve=>releaseOlder=resolve);const older=box.refreshStudentProgress();
+  box.fetch=async()=>response(200,fixture(true));await box.refreshStudentProgress();releaseOlder(response(200,fixture(false)));assert.equal(await older,null);
+  assert.equal(vm.runInContext('DATA.learningProgress.sets[0].batches[0].masteryPercent',box),60,'Older response must not overwrite newer data');
  });
  await test('AC-10 accessible labels, percentages and direction without relying on color',()=>{
   box.renderLearningProgress(fixture().learningProgress);const h=e.learningProgressContent.innerHTML;
