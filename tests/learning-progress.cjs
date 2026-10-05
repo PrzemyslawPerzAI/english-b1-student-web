@@ -4,6 +4,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const front=path.resolve(__dirname,'..'),root=path.resolve(front,'..');
 const html=fs.readFileSync(path.join(front,'index.html'),'utf8');
 const script=html.match(/<script>([\s\S]*?)<\/script>/)[1];
+const visualBaseline=require('./progress-visual-baseline.cjs');
 const plain=x=>JSON.parse(JSON.stringify(x));
 // Independent UI fixtures: this repository never reads private backend source.
 function fixture(second=true){
@@ -19,6 +20,17 @@ function fixture(second=true){
   sets.push({setWeek,sentWords,masteredWords,difficultWords:day?sentWords-masteredWords:null,masteryPercent:day?masteredWords/sentWords*100:null,fullySent:Boolean(day),quizzesCompleted:day?batches.length:0,plannedBatches:batches.length,lastSentAt:day?`2026-03-0${day}T00:00:00.000Z`:null,incomplete:false,availabilityReason:day?'':'Brak kompletnej historii opanowania wysłanych słów.',batches});
  }
  return {learner:'Synthetic',setWeek:2,batch:1,words:[{word:'fixture',meaning:'synthetic',level:'B1'}],currentSetWords:[],allSentWords:[],audioUrl:'',quizUrl:'',stats:{quizzesCompleted:1,latestQuizPercent:80,masteredTotal:4},quizQuestions:[{sourceNr:'1',word:'fixture',type:'FILL_GAP',number:1,question:'synthetic question',options:[],points:1}],learningProgress:{summary:{setsCompleted:3,batchesSent:11,quizzesCompleted:11},sets,incomplete:false}};
+}
+// Values from the reference are confined to this independent synthetic fixture.
+function visualFixture(count=4){
+ const d=fixture();
+ const make=(setWeek,values,day)=>{
+  const batches=values.map((masteryPercent,i)=>({batch:i+1,sentWords:50,plannedWords:50,masteredWords:masteryPercent/2,difficultWords:50-masteryPercent/2,masteryPercent,trendPp:setWeek===8?[6,3,0,12][i%4]:[2,1,4,-3][i%4],trendReason:'',fullySent:true,completed:true,quizCompleted:true,incomplete:false,availabilityReason:''}));
+  const masteredWords=batches.reduce((n,b)=>n+b.masteredWords,0),sentWords=50*values.length;
+  return {setWeek,batches,sentWords,masteredWords,difficultWords:sentWords-masteredWords,masteryPercent:masteredWords/sentWords*100,fullySent:true,quizzesCompleted:values.length,plannedBatches:values.length,lastSentAt:`2026-03-0${day}T00:00:00.000Z`,incomplete:false,availabilityReason:''};
+ };
+ d.learningProgress={summary:{setsCompleted:3,batchesSent:count+5,quizzesCompleted:count+5},sets:[make(8,Array.from({length:count},(_,i)=>[96,86,72,58,100,0,50][i]),3),make(7,[96,94,90,92],2),make(3,[50],1)],incomplete:false};
+ return d;
 }
 const response=(status,data)=>({status,ok:status>=200&&status<300,json:async()=>data});
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -57,22 +69,22 @@ async function vmTests(){
   const d=fixture();box.renderLearningProgress(d.learningProgress);const h=e.learningProgressContent.innerHTML;
   for(const [key,value] of Object.entries(d.learningProgress.summary))assert.ok(h.includes(`data-progress-counter="${key}">${value}<`));
   assert.ok(h.indexOf('data-progress-set="2"')<h.indexOf('data-progress-set="9"'));
-  assert.ok(h.indexOf('data-progress-set="9"')<h.indexOf('<details'));
+  assert.ok(h.indexOf('data-progress-set="9"')<h.indexOf('<details id="learningProgressHistory"'));
   assert.match(h,/<details id="learningProgressHistory"><summary>Pokaż wcześniejsze sety/);
   assert.doesNotMatch(h,/data-progress-set="10"/);assert.equal((h.match(/data-progress-batch=/g)||[]).length,11);
   assert.match(h,/Wykonany/);assert.match(h,/Wysłany w całości/);assert.match(h,/Quizy: 7\/7/);
   assert.match(h,new RegExp(box.progressCounts(d.learningProgress.sets[0])+' opanowanych/wysłanych'));
-  box.renderLearningProgress({summary:d.learningProgress.summary,sets:[d.learningProgress.sets[0]]});assert.doesNotMatch(e.learningProgressContent.innerHTML,/<details/);
+  box.renderLearningProgress({summary:d.learningProgress.summary,sets:[d.learningProgress.sets[0]]});assert.doesNotMatch(e.learningProgressContent.innerHTML,/id="learningProgressHistory"/);
  });
  await test('AC-05/06/08 unrounded levels, independently signed trends and unavailable history',()=>{
   for(const [n,level] of [[69.9,'low'],[70,'mid'],[89.9,'mid'],[90,'high'],[69.99,'low'],[89.99,'mid'],[null,'unknown']])assert.equal(box.progressLevel(n),level);
-  assert.match(box.progressTrend({trendPp:20}),/lp-up.*Wzrost \+20 pp/);assert.match(box.progressTrend({trendPp:0}),/lp-flat.*Bez zmiany 0 pp/);assert.match(box.progressTrend({trendPp:-30}),/lp-down.*Spadek -30 pp/);
-  assert.match(box.progressTrend({trendPp:null,trendReason:'Niekompletna historia'}),/Trend: —.*Niekompletna/);
+  assert.match(box.progressTrend({trendPp:20}),/lp-up.*Wzrost .*\+20 pp/);assert.match(box.progressTrend({trendPp:0}),/lp-flat.*Bez zmiany .*0 pp/);assert.match(box.progressTrend({trendPp:-30}),/lp-down.*Spadek .*-30 pp/);
+  assert.match(box.progressTrend({trendPp:null,trendReason:'Niekompletna historia'}),/lp-trend-word">Trend: <\/span>—/);assert.match(box.progressDataDetails({trendPp:null,trendReason:'Niekompletna historia'},false),/Trend: —.*Niekompletna/);
   assert.match(box.progressBar({masteryPercent:90,masteredWords:9,sentWords:10},'set',false),/lp-high/);
   assert.match(box.progressTrend({trendPp:-10}),/lp-down/);
   const d=fixture(),s=d.learningProgress.sets[0];s.masteryPercent=null;s.masteredWords=null;s.difficultWords=null;s.incomplete=true;s.batches[0].availabilityReason='Niekompletna historia';s.batches[0].masteryPercent=null;
   box.renderLearningProgress(d.learningProgress);assert.match(e.learningProgressContent.innerHTML,/Opanowanie: —/);assert.match(e.learningProgressContent.innerHTML,/Niekompletne dane/);assert.match(e.learningProgressContent.innerHTML,/Niekompletna historia/);
-  assert.match(box.progressBar({masteryPercent:null,masteredWords:null,sentWords:0},'set',false),/0\/0/);assert.doesNotMatch(box.progressBar({masteryPercent:null,masteredWords:null,sentWords:0},'set',false),/aria-valuenow|NaN/);
+  assert.match(box.progressBar({masteryPercent:null,masteredWords:null,sentWords:0},'set',false),/—\/0/);assert.doesNotMatch(box.progressBar({masteryPercent:null,masteredWords:null,sentWords:0},'set',false),/aria-valuenow|NaN/);
  });
  await test('AC-09 loading, empty, unavailable contract, 502 and 401',async()=>{
   let release;box.fetch=()=>new Promise(resolve=>release=resolve);const pending=box.showLearningProgress();assert.equal(e.learningProgressState.textContent,'Ładowanie postępu…');assert.equal(e.learningProgressContent.innerHTML,'');assert.equal(e.learningProgress.attrs['aria-busy'],'true');
@@ -95,7 +107,7 @@ async function vmTests(){
  });
  await test('AC-10 accessible labels, percentages and direction without relying on color',()=>{
   box.renderLearningProgress(fixture().learningProgress);const h=e.learningProgressContent.innerHTML;
-  assert.match(h,/role="progressbar".*aria-valuemin="0" aria-valuemax="100"/);assert.match(h,/aria-valuenow="60"/);assert.match(h,/aria-valuetext="60%; opanowane\/wysłane 6\/10"/);assert.match(h,/Poziom: niski/);assert.match(h,/Wzrost/);assert.match(h,/Spadek/);assert.match(html,/repeat\(auto-fit,minmax\(min\(100%,170px\),1fr\)\)/);
+  assert.match(h,/role="progressbar".*aria-valuemin="0" aria-valuemax="100"/);assert.match(h,/aria-valuenow="60"/);assert.match(h,/aria-valuetext="60%; opanowane\/wysłane 6\/10"/);assert.match(h,/Poziom: niski/);assert.match(h,/Wzrost/);assert.match(h,/Spadek/);assert.match(html,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
  });
  await test('AC-11 regression: actual quiz save refreshes data and refresh failure does not undo saved result',async()=>{
   box.document.querySelector=()=>({value:'synthetic answer'});box.init(fixture(false));
@@ -112,6 +124,51 @@ async function vmTests(){
   assert.equal(vm.runInContext('DATA.learningProgress.sets[0].batches[0].masteryPercent',box),60);
   failSave=true;box.checkQuiz();await tick();assert.match(e.quizResult.innerHTML,/Nie zapisano wyniku/);assert.equal(refreshed,1);assert.equal(e.checkQuizBtn.disabled,false);
   failSave=false;failRefresh=true;box.checkQuiz();await tick();assert.equal(e.checkQuizBtn.textContent,'WYNIK ZAPISANY');assert.match(e.quizResult.innerHTML,/zapisano próbę 2/);assert.equal(refreshed,2);
+ });
+ await test('LP-01/02/06/07 reference hierarchy, exact sums and presentation order',()=>{
+  const d=visualFixture();box.renderLearningProgress(d.learningProgress);const h=e.learningProgressContent.innerHTML;
+  assert.match(html,/Sprawdź swój postęp w nauce słówek\./);assert.match(html,/lp-heading-icon/);assert.match(html,/id="learningProgressBtn" class="menu-card purple"/);
+  assert.match(h,/\(aktualny\)/);assert.match(h,/\(poprzedni\)/);assert.match(h,/lp-score lp-mid"><strong>78%/);assert.match(h,/lp-score lp-high"><strong>93%/);
+  for(const n of [156,44,200,186,14])assert.ok(h.includes('<strong>'+n+'</strong>'));
+  const batch=h.slice(h.indexOf('data-progress-batch="1"'),h.indexOf('data-progress-batch="2"'));
+  assert.ok(batch.indexOf('lp-batch-percent')<batch.indexOf('lp-column'));assert.ok(batch.indexOf('lp-column')<batch.indexOf('lp-trend'));assert.ok(batch.indexOf('lp-trend')<batch.indexOf('lp-counts'));
+  for(const k of Object.keys(d.learningProgress.summary))assert.ok(h.includes(`data-progress-counter="${k}">${d.learningProgress.summary[k]}</strong>`));
+  assert.match(h,/aria-label="Legenda postępu"/);assert.match(h,/difficult — słowa wymagające powtórki/);
+ });
+ await test('LP-05/14/15/17 0, 1, 2, 5 sent sets; ties and 1/3/4/5/7 batch fixtures',()=>{
+  for(const count of [1,3,4,5,7]){const d=visualFixture(count);box.renderLearningProgress(d.learningProgress);assert.equal((e.learningProgressContent.innerHTML.match(/data-progress-batch=/g)||[]).length,count+5);}
+  const all=fixture().learningProgress;
+  for(const count of [0,1,2]){box.renderLearningProgress({...all,sets:all.sets.slice(0,count)});assert.doesNotMatch(e.learningProgressContent.innerHTML,/learningProgressHistory/);assert.equal((e.learningProgressContent.innerHTML.match(/data-progress-set=/g)||[]).length,count);}
+  const d=visualFixture().learningProgress;d.sets.push({...d.sets[2],setWeek:1},{...d.sets[2],setWeek:5});box.renderLearningProgress(d);let h=e.learningProgressContent.innerHTML;
+  assert.equal((h.match(/class="lp-history-set"/g)||[]).length,3);assert.doesNotMatch(h,/<details[^>]* open/);
+  const tied=fixture().learningProgress;tied.sets[1].lastSentAt=tied.sets[0].lastSentAt;box.renderLearningProgress(tied);h=e.learningProgressContent.innerHTML;assert.ok(h.indexOf('data-progress-set="9"')<h.indexOf('data-progress-set="2"'));
+  box.renderLearningProgress({...all,sets:[all.sets[3]]});assert.doesNotMatch(e.learningProgressContent.innerHTML,/data-progress-set=/);assert.match(e.learningProgressState.textContent,/Brak potwierdzonych/);
+ });
+ await test('LP-10/11/12/13 unknown, zero and threshold precision preserve semantic information',()=>{
+  assert.equal(box.progressCounts({sentWords:0,masteredWords:null}),'—/0');assert.equal(box.progressCounts({sentWords:0,masteredWords:0}),'0/0');
+  assert.equal(box.progressCounts({sentWords:10,masteredWords:0}),'0/10');
+  for(const [value,level,label] of [[69.99,'low','70%'],[70,'mid','70%'],[86,'mid','86%'],[89.99,'mid','90%'],[90,'high','90%'],[100,'high','100%'],[null,'unknown','—']]){
+   assert.equal(box.progressLevel(value),level);assert.equal(box.progressPercent(value),label);
+   const bar=box.progressBar({masteryPercent:value,masteredWords:null,sentWords:50},'test',true);assert.match(bar,new RegExp('lp-'+level));if(value===null)assert.doesNotMatch(bar,/aria-valuenow/);
+  }
+  for(const reason of ['Pierwsza próba','Luka AttemptNo 1→3','Zmiana SourceNr','Niekompletna najnowsza próba'])assert.ok(box.progressDataDetails({trendPp:null,trendReason:reason},false).includes(reason));
+  assert.match(box.progressBar({masteryPercent:58,sentWords:50,masteredWords:29},'test',true),/lp-low/);assert.match(box.progressTrend({trendPp:12}),/lp-up/);
+ });
+ await test('LP-20/21 invalid JSON and invalid summary retry without fabricated counters',async()=>{
+  for(const value of [undefined,null,-1,1.5,'3',NaN]){
+   const d=fixture();d.learningProgress.summary.setsCompleted=value;box.fetch=async()=>response(200,d);await box.showLearningProgress();assert.match(e.learningProgressState.textContent,/Nie udało/);assert.doesNotMatch(e.learningProgressContent.innerHTML,/data-progress-counter/);
+  }
+  box.fetch=async()=>({ok:true,status:200,json:async()=>{throw new SyntaxError('synthetic JSON')}});await box.showLearningProgress();assert.match(e.learningProgressState.textContent,/Nie udało/);
+  box.fetch=async()=>response(200,visualFixture());await box.showLearningProgress();assert.match(e.learningProgressContent.innerHTML,/data-progress-counter="setsCompleted">3/);
+ });
+ await test('LP-22 leaving progress cancels late success, error and 401 including timestamp and session routing',async()=>{
+  const {box,elements:e}=domBox();await tick();
+  for(const kind of ['ok','http','auth','json','network']){
+   box.fetch=async()=>response(200,timed(winter));await box.showLearningProgress();const before=plain(vm.runInContext('DATA',box));
+   const gate=deferred();box.fetch=async()=>{await gate.promise;if(kind==='network')throw Error('synthetic offline');if(kind==='json')return {ok:true,status:200,json:async()=>{throw Error('synthetic JSON')}};return response(kind==='http'?502:kind==='auth'?401:200,timed(later,2));};
+   const pending=box.showLearningProgress();box.returnFromLearningProgress();gate.release();await pending;
+   assert.deepEqual(plain(vm.runInContext('DATA',box)),before);assert.equal(e.dataRefreshTime.textContent,'Dane odświeżono: 10:15');assert.equal(e.home.classList.contains('hidden'),false);assert.equal(e.login.classList.contains('hidden'),true);assert.equal(e.focused,'learningProgressBtn');
+  }
  });
  await proxyTests();
  await timeTests(vmDriver,'VM');
@@ -378,16 +435,16 @@ async function browserTests(){
    assert.equal(await page.locator('[data-progress-set]').count(),3);
    const ids=await page.locator('[data-progress-set]').evaluateAll(es=>es.map(e=>Number(e.dataset.progressSet)));assert.deepEqual(ids,[2,9,4]);
    assert.equal(await page.locator('[data-progress-set="4"]').isVisible(),false);assert.equal(await page.locator('#learningProgressHistory').getAttribute('open'),null);
-   await page.locator('#learningProgressHistory summary').click();assert.equal(await page.locator('[data-progress-set="4"]').isVisible(),true);
+   await page.locator('#learningProgressHistory > summary').click();assert.equal(await page.locator('[data-progress-set="4"]').isVisible(),false);await page.locator('.lp-history-set > summary').click();assert.equal(await page.locator('[data-progress-set="4"]').isVisible(),true);
    for(const [s,n] of [[2,7],[9,3],[4,1]])assert.equal(await page.locator(`[data-progress-set="${s}"] [data-progress-batch]`).count(),n);
-   const s2=page.locator('[data-progress-set="2"]');assert.ok((await s2.innerText()).includes(`${d.sets[0].masteredWords}/${d.sets[0].sentWords}`));
+   const s2=page.locator('[data-progress-set="2"]');assert.ok((await s2.textContent()).includes(`${d.sets[0].masteredWords}/${d.sets[0].sentWords}`));
    const chart=s2.locator('[role="progressbar"]').first();assert.equal(Number(await chart.getAttribute('aria-valuenow')),d.sets[0].masteryPercent);
    assert.ok(await page.locator('[role="progressbar"][aria-label][aria-valuetext]').count()>10);
    for(const [b,level,value] of [[1,'low',69.9],[2,'mid',70],[3,'mid',89.9]]){
     const bar=page.locator(`[data-progress-set="9"] [data-progress-batch="${b}"] [role="progressbar"]`);
     assert.ok((await bar.getAttribute('class')).includes('lp-'+level));assert.ok(Math.abs(Number(await bar.getAttribute('aria-valuenow'))-value)<1e-10);
    }
-   for(const text of ['Wykonany','Wysłany w całości','Pierwsza próba'])assert.ok((await page.locator('#learningProgressContent').innerText()).includes(text));
+   for(const text of ['Wykonany','Wysłany w całości','Pierwsza próba'])assert.ok((await page.locator('#learningProgressContent').textContent()).includes(text));
   });
   await test('Browser AC-10 widths 320/1280 and 200% zoom without horizontal overflow',async()=>{
    for(const width of [320,1280]){
@@ -407,19 +464,19 @@ async function browserTests(){
    const before=requests;await page.locator('#checkQuizBtn').click();await page.waitForFunction(()=>document.getElementById('checkQuizBtn').textContent==='WYNIK ZAPISANY');
    await page.waitForFunction(()=>DATA.learningProgress.sets[0].batches[0].masteryPercent===60);
    assert.equal(submitCount,1);assert.ok(requests>before);
-   await page.evaluate(()=>showHome());await open();const text=await page.locator('#learningProgressContent').innerText();assert.ok(text.includes('↑ Wzrost +20 pp'));
-   assert.equal(await page.locator('[data-progress-set="4"] .lp-batch .lp-high').count(),1);assert.equal(await page.locator('[data-progress-set="4"] .lp-down').count(),1);
-   await page.locator('#learningProgressBack').click();await open();assert.equal(await page.locator('#learningProgressContent').innerText(),text);
-   await page.reload();await visible('#home');await open();assert.equal(await page.locator('#learningProgressContent').innerText(),text);
+   await page.evaluate(()=>showHome());await open();const text=await page.locator('#learningProgressContent').textContent();assert.ok(text.includes('↑ Wzrost +20 pp'));
+   assert.equal(await page.locator('[data-progress-set="4"] .lp-batch .lp-column.lp-high').count(),1);assert.equal(await page.locator('[data-progress-set="4"] .lp-down').count(),1);
+   await page.locator('#learningProgressBack').click();await open();assert.equal(await page.locator('#learningProgressContent').textContent(),text);
+   await page.reload();await visible('#home');await open();assert.equal(await page.locator('#learningProgressContent').textContent(),text);
   });
   await test('Browser AC-06/09 loading, incomplete history, empty, zero denominator, 502 and expired session',async()=>{
    await page.locator('#learningProgressBack').click();
    let release;pause={promise:new Promise(r=>release=r)};
    await page.locator('#learningProgressBtn').click();await page.getByText('Ładowanie postępu…',{exact:true}).waitFor();assert.equal(await page.locator('#learningProgress').getAttribute('aria-busy'),'true');assert.equal(await page.locator('[data-progress-counter]').count(),0);release();pause=null;await visible('[data-progress-counter]');
    const incomplete=fixture();incomplete.learningProgress.incomplete=true;const s=incomplete.learningProgress.sets[0];s.incomplete=true;s.masteredWords=null;s.difficultWords=null;s.masteryPercent=null;s.availabilityReason='Niekompletna historia';s.batches[0].masteryPercent=null;s.batches[0].masteredWords=null;s.batches[0].trendPp=null;s.batches[0].trendReason='Niekompletna historia';
-   data=incomplete;await page.locator('#learningProgressBack').click();await open();assert.ok((await page.locator('#learningProgressContent').innerText()).includes('Opanowanie: —'));assert.ok((await page.locator('#learningProgressContent').innerText()).includes('Niekompletna historia'));
+   data=incomplete;await page.locator('#learningProgressBack').click();await open();assert.ok((await page.locator('#learningProgressContent').textContent()).includes('Opanowanie: —'));assert.ok((await page.locator('#learningProgressContent').textContent()).includes('Niekompletna historia'));
    data={...fixture(),learningProgress:{summary:{setsCompleted:0,batchesSent:0,quizzesCompleted:0},sets:[]}};await page.locator('#learningProgressBack').click();await open();assert.ok((await page.locator('#learningProgressState').innerText()).includes('Brak potwierdzonych'));assert.equal(await page.locator('[data-progress-set]').count(),0);
-   const zero=fixture();const z=zero.learningProgress.sets[0];Object.assign(z,{sentWords:0,masteredWords:null,difficultWords:null,masteryPercent:null});zero.learningProgress.sets=[z];data=zero;await page.locator('#learningProgressBack').click();await open();assert.ok((await page.locator('#learningProgressContent').innerText()).includes('0/0'));assert.ok(!(await page.locator('#learningProgressContent').innerText()).includes('NaN'));
+   const zero=fixture();const z=zero.learningProgress.sets[0];Object.assign(z,{sentWords:0,masteredWords:null,difficultWords:null,masteryPercent:null});zero.learningProgress.sets=[z];data=zero;await page.locator('#learningProgressBack').click();await open();assert.ok((await page.locator('#learningProgressContent').textContent()).includes('—/0'));assert.ok(!(await page.locator('#learningProgressContent').innerText()).includes('NaN'));
    status=502;await page.locator('#learningProgressBack').click();await page.locator('#learningProgressBtn').click();await page.getByText('Nie udało się pobrać postępu. Spróbuj ponownie.',{exact:true}).waitFor();assert.equal(await page.locator('[data-progress-counter]').count(),0);
    status=200;data=fixture();await page.getByRole('button',{name:'Spróbuj ponownie'}).click();await visible('[data-progress-counter]');
    status=401;await page.locator('#learningProgressBack').click();await page.locator('#learningProgressBtn').click();await visible('#login');assert.equal(await page.locator('#learningProgress').isVisible(),false);assert.equal(await page.locator('#pin').evaluate(e=>e===document.activeElement),true);
@@ -428,6 +485,7 @@ async function browserTests(){
   const create=(initial,options)=>browserDriver(browser,initial,options);
   await timeTests(create,'Chromium UTC');
   await browserTimeLifecycle(create);
+  await browserVisualTests(browser);
  }finally{await browser.close();}
 }
 async function browserDriver(browser,initial=ok(timed()),options={}){
@@ -524,6 +582,157 @@ async function browserTimeLifecycle(create){
   }finally{await d.close()}
  });
 }
+// The browser branch writes synthetic screenshots only to an OS temporary dir.
+// CSS zoom and half-width reflow are stress checks, not proof of native browser
+// zoom. Native 200% zoom and visual baseline approval still require a reviewer.
+async function browserVisualTests(browser){
+ const os=require('node:os');
+ const output=fs.mkdtempSync(path.join(os.tmpdir(),'learning-progress-qa-'));
+ const proof={reference:visualBaseline.reference,chromiumVersion:browser.version(),screenshots:[],measurements:[],goldenCompared:[],humanReviewRequired:!visualBaseline.humanReviewed,zoomMethod:'CSS zoom=2 plus half-width layout reflow; native browser zoom review pending'};
+ const capture=async(page,key)=>{
+  const png=await page.locator('#learningProgress').screenshot({path:path.join(output,key+'.png'),animations:'disabled'});
+  proof.screenshots.push(key+'.png');
+  if (/^reference-[45]-(320|375|540|1280)$/.test(key)) {
+   const encoded=png.toString('base64');
+   for(let i=0;i<encoded.length;i+=2048)console.log('FACTORY_VISUAL_PNG:'+key+':'+i+':'+encoded.slice(i,i+2048));
+  }
+  if(visualBaseline.humanReviewed){
+   assert.equal(browser.version(),visualBaseline.chromiumVersion,'Golden requires the reviewed Chromium version');
+   assert.ok(visualBaseline.pngs[key],'Missing reviewed golden '+key);
+   assert.deepEqual(png,Buffer.from(visualBaseline.pngs[key],'base64'),'Screenshot differs from reviewed golden '+key);
+   proof.goldenCompared.push(key);
+  }
+ };
+ const open=async(d,data)=>{d.plan.student.push(ok(data));await d.page.locator('#learningProgressBtn').click();await d.page.locator('[data-progress-counter]').first().waitFor();};
+ const noOverflow=async(page)=>{
+  const bad=await page.locator('#learningProgress').evaluate(root=>{
+   const bad=[];
+   for(const e of [root,...root.querySelectorAll('*')]){
+    if(e.closest('svg')||e.classList.contains('lp-trend-word'))continue;
+    let ancestor=e.parentElement,closed=false;
+    while(ancestor&&ancestor!==root){if(ancestor.tagName==='DETAILS'&&!ancestor.open&&e.closest('summary')!==ancestor.querySelector(':scope > summary')){closed=true;break;}ancestor=ancestor.parentElement;}
+    if(closed)continue;
+    const r=e.getBoundingClientRect();if(!r.width||!r.height)continue;
+    // Closed details descendants have no client rects in Chromium.
+    if(r.left<-1||r.right>innerWidth+1||e.scrollWidth>e.clientWidth+1)bad.push({tag:e.tagName,cls:e.className,left:r.left,right:r.right,scroll:e.scrollWidth,client:e.clientWidth});
+   }
+   return bad;
+  });assert.deepEqual(bad,[],'Internal overflow or clipping, including when global overflow-x is hidden');
+ };
+ try{
+  for(const count of visualBaseline.batchCounts){
+   const data=visualFixture(count),d=await browserDriver(browser,ok(data));
+   try{
+    await open(d,data);
+    for(const width of visualBaseline.widths){
+     await test(`Chromium LP-14/15 columns and internal overflow width=${width} batches=${count}`,async()=>{
+      await d.page.setViewportSize({width,height:1000});
+      if(count===4||count===5)await capture(d.page,`reference-${count}-${width}`);
+      await noOverflow(d.page);
+      const grid=d.page.locator('[data-progress-set="8"] .lp-batches');
+      const layout=await grid.evaluate(e=>({columns:getComputedStyle(e).gridTemplateColumns.split(' ').length,boxes:[...e.children].map(c=>{const r=c.getBoundingClientRect();return {x:r.x,y:r.y,bottom:r.bottom,width:r.width,font:parseFloat(getComputedStyle(c.querySelector('h3')).fontSize)}})}));
+      const columns=width<540?2:Math.min(5,count);assert.equal(layout.columns,columns);
+      layout.boxes.forEach((b,i)=>{assert.equal(b.font,visualBaseline.batchFont);assert.ok(b.width>=50);if(i%columns)assert.ok(b.x>layout.boxes[i-1].x);if(i>=columns)assert.ok(b.y>=layout.boxes[i-columns].bottom);});
+      proof.measurements.push({width,count,layout});
+      await d.page.locator('[data-progress-set="8"] .lp-data').first().evaluate(e=>e.open=true);await noOverflow(d.page);await d.page.locator('[data-progress-set="8"] .lp-data').first().evaluate(e=>e.open=false);
+     });
+    }
+   }finally{await d.close()}
+  }
+  await test('Chromium LP-01/02/06/07/16/26 reference geometry, hierarchy, fonts and contrast',async()=>{
+   const data=visualFixture(),d=await browserDriver(browser,ok(data));try{
+    await open(d,data);await d.page.setViewportSize({width:540,height:1000});
+    const metrics=await d.page.locator('#learningProgress').evaluate(root=>{
+     const rect=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
+     const lum=color=>{const rgb=color.match(/[\d.]+/g).slice(0,3).map(Number).map(n=>{n/=255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4});return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722};
+     const contrast=[];
+     for(const e of root.querySelectorAll('h1,h2,h3,p,strong,span,summary')){
+      if(!e.getClientRects().length||e.classList.contains('lp-trend-word'))continue;
+      const style=getComputedStyle(e);let parent=e,bg;
+      while(parent){bg=getComputedStyle(parent).backgroundColor;if(bg!=='rgba(0, 0, 0, 0)')break;parent=parent.parentElement;}
+      const fg=lum(style.color),back=lum(bg||'rgb(255, 255, 255)');contrast.push({text:e.textContent,ratio:(Math.max(fg,back)+.05)/(Math.min(fg,back)+.05),large:parseFloat(style.fontSize)>=24||parseFloat(style.fontSize)>=18.66&&Number(style.fontWeight)>=700});
+     }
+     const sets=[...root.querySelectorAll('.lp-set')].slice(0,2).map(set=>({title:rect(set.querySelector('h2')),score:rect(set.querySelector('.lp-score')),bar:rect(set.querySelector('.lp-track')),fill:rect(set.querySelector('.lp-track .lp-fill')),metrics:rect(set.querySelector('.lp-metrics')),percent:Number(set.querySelector('.lp-track').getAttribute('aria-valuenow')),counts:[...set.querySelectorAll('.lp-metrics strong')].map(e=>e.textContent)}));
+     const batches=[...root.querySelector('[data-progress-set="8"] .lp-batches').children].map(e=>({title:rect(e.querySelector('h3')),percent:rect(e.querySelector('.lp-batch-percent')),track:rect(e.querySelector('.lp-column')),fill:rect(e.querySelector('.lp-fill')),trend:rect(e.querySelector('.lp-trend')),counts:rect(e.querySelector('.lp-counts')),color:getComputedStyle(e.querySelector('.lp-fill')).backgroundColor,font:getComputedStyle(e.querySelector('.lp-batch-percent')).fontSize}));
+     const counters=[...root.querySelectorAll('.lp-counter')].map(e=>({icon:rect(e.querySelector('svg')),number:rect(e.querySelector('strong')),label:rect(e.querySelector('span'))}));
+     return {sets,batches,counters,contrast,background:getComputedStyle(root).backgroundColor,ink:getComputedStyle(root).color,font:getComputedStyle(root).fontFamily};
+    });
+    proof.measurements.push({reference:metrics});
+    assert.equal(metrics.background,visualBaseline.background);assert.equal(metrics.ink,visualBaseline.ink);assert.match(metrics.font,/Arial/);
+    assert.deepEqual(metrics.sets.map(s=>s.counts),[['200','156','44'],['200','186','14']]);
+    for(const s of metrics.sets){assert.ok(s.title.x<s.score.x);assert.ok(s.score.bottom<=s.bar.y);assert.ok(s.bar.bottom<=s.metrics.y);assert.ok(Math.abs(s.fill.width-s.bar.width*s.percent/100)<=1);}
+    for(const c of metrics.counters){assert.ok(c.icon.bottom<=c.number.y);assert.ok(c.number.bottom<=c.label.y);}
+    metrics.batches.forEach((b,i)=>{assert.equal(b.track.height,visualBaseline.trackHeight);assert.equal(b.track.width,visualBaseline.trackWidth);assert.equal(b.font,visualBaseline.percentFont+'px');assert.ok(b.title.bottom<=b.percent.y);assert.ok(b.percent.bottom<=b.track.y);assert.ok(b.track.bottom<=b.trend.y);assert.ok(b.trend.bottom<=b.counts.y);assert.ok(Math.abs(b.fill.height-b.track.height*[.96,.86,.72,.58][i])<=1);assert.ok(Math.abs(b.fill.bottom-b.track.bottom)<=1);assert.equal(b.color,visualBaseline.colors[i===0?'high':i===3?'low':'mid']);});
+    for(const c of metrics.contrast)assert.ok(c.ratio>=(c.large?visualBaseline.largeContrast:visualBaseline.normalContrast),`Contrast ${c.ratio}: ${c.text}`);
+    assert.equal(await d.page.locator('[data-progress-batch="4"] .lp-column.lp-low').count(),1);assert.equal(await d.page.locator('[data-progress-set="8"] [data-progress-batch="4"] .lp-up').count(),1);
+   }finally{await d.close()}
+  });
+  await test('Chromium LP-11/12/16/18 thresholds, null ARIA, common scales and signed trends',async()=>{
+   const data=visualFixture(5),values=[0,25,50,75,100],d=await browserDriver(browser,ok(data));try{
+    const set=data.learningProgress.sets[0];values.forEach((v,i)=>Object.assign(set.batches[i],{masteryPercent:v,masteredWords:v/2,difficultWords:50-v/2}));await open(d,data);
+    for(const [i,value] of values.entries()){
+     const bar=d.page.locator(`[data-progress-set="8"] [data-progress-batch="${i+1}"] .lp-column`);
+     assert.equal(await bar.getAttribute('role'),'progressbar');assert.equal(await bar.getAttribute('aria-valuemin'),'0');assert.equal(await bar.getAttribute('aria-valuemax'),'100');assert.equal(Number(await bar.getAttribute('aria-valuenow')),value);
+     const geometry=await bar.evaluate(e=>({height:e.getBoundingClientRect().height,fill:e.firstElementChild.getBoundingClientRect().height,bottom:e.getBoundingClientRect().bottom-e.firstElementChild.getBoundingClientRect().bottom}));assert.ok(Math.abs(geometry.fill-geometry.height*value/100)<=1);assert.ok(Math.abs(geometry.bottom)<=1);
+    }
+    for(const [value,level] of [[69.99,'low'],[70,'mid'],[86,'mid'],[89.99,'mid'],[90,'high'],[100,'high'],[null,'unknown']]){
+     await d.page.evaluate(({value})=>{const b=DATA.learningProgress.sets[0].batches[0];b.masteryPercent=value;b.masteredWords=value===null?null:0;b.trendPp=null;b.trendReason='Niekompletna próba';renderLearningProgress(DATA.learningProgress)},{value});
+     const bar=d.page.locator('[data-progress-set="8"] [data-progress-batch="1"] .lp-column');assert.ok((await bar.getAttribute('class')).includes('lp-'+level));assert.equal(await bar.locator('.lp-fill').evaluate(e=>getComputedStyle(e).backgroundColor),visualBaseline.colors[level]);
+     assert.equal(await bar.getAttribute('aria-valuenow'),value===null?null:String(value));assert.ok(await bar.getAttribute('aria-label'));if(value===null)assert.match(await bar.getAttribute('aria-valuetext'),/—/);
+    }
+    const details=d.page.locator('[data-progress-set="8"] [data-progress-batch="1"] .lp-data');await details.locator('summary').focus();await d.page.keyboard.press('Space');assert.equal(await details.getAttribute('open'),'');assert.match(await details.innerText(),/Niekompletna próba/);await noOverflow(d.page);await capture(d.page,'unknown-expanded-data');
+    await d.page.locator('#learningProgressBack').focus();const outline=await d.page.locator('#learningProgressBack').evaluate(e=>getComputedStyle(e).outlineWidth);assert.ok(parseFloat(outline)>=3);
+   }finally{await d.close()}
+  });
+  await test('Chromium LP-17 older sets expand individually by keyboard',async()=>{
+   const data=visualFixture(),d=await browserDriver(browser,ok(data));try{
+    data.learningProgress.sets.push({...data.learningProgress.sets[2],setWeek:1},{...data.learningProgress.sets[2],setWeek:2});await open(d,data);
+    const history=d.page.locator('#learningProgressHistory');assert.equal(await history.getAttribute('open'),null);
+    await history.locator(':scope > summary').focus();await d.page.keyboard.press('Enter');assert.equal(await history.getAttribute('open'),'');
+    const rows=history.locator('.lp-history-set');assert.equal(await rows.count(),3);for(const row of await rows.all()){assert.equal(await row.locator('.lp-batch').isVisible(),false);assert.match(await row.locator(':scope > summary').innerText(),/Set [123].*50%/s);}
+    await rows.first().locator(':scope > summary').focus();await d.page.keyboard.press('Space');assert.equal(await rows.first().locator('.lp-batch').isVisible(),true);assert.equal(await rows.nth(1).getAttribute('open'),null);await noOverflow(d.page);await capture(d.page,'history-expanded-individually');
+   }finally{await d.close()}
+  });
+  await test('Chromium LP-05/17/20/21 0/1/2 sets, planned only, contract errors and retry',async()=>{
+   const data=visualFixture(),d=await browserDriver(browser,ok(data));try{
+    for(const count of [0,1,2]){
+     const next=plain(data);next.learningProgress.sets=next.learningProgress.sets.slice(0,count);if(count===0)next.learningProgress.summary={setsCompleted:0,batchesSent:0,quizzesCompleted:0};
+     await open(d,next);assert.equal(await d.page.locator('[data-progress-set]').count(),count);assert.equal(await d.page.locator('#learningProgressHistory').count(),0);await d.page.locator('#learningProgressBack').click();
+    }
+    const planned=fixture();planned.learningProgress={summary:{setsCompleted:0,batchesSent:0,quizzesCompleted:0},sets:[planned.learningProgress.sets[3]],incomplete:false};await open(d,planned);assert.equal(await d.page.locator('[data-progress-set]').count(),0);await capture(d.page,'planned-only');await d.page.locator('#learningProgressBack').click();
+    for(const progress of [undefined,{summary:{setsCompleted:-1,batchesSent:0,quizzesCompleted:0},sets:[]},{summary:{},sets:[]}]){
+     d.plan.student.push(ok({...data,learningProgress:progress}));await d.page.locator('#learningProgressBtn').click();await d.page.getByRole('button',{name:'Spróbuj ponownie'}).waitFor();assert.equal(await d.page.locator('[data-progress-counter]').count(),0);
+     d.plan.student.push(ok(data));await d.page.getByRole('button',{name:'Spróbuj ponownie'}).click();await d.page.locator('[data-progress-counter]').first().waitFor();await d.page.locator('#learningProgressBack').click();
+    }
+   }finally{await d.close()}
+  });
+  await test('Chromium LP-22 leaving during pending GET prevents late data, time and login changes',async()=>{
+   const d=await browserDriver(browser,ok(timed()));try{
+    for(const kind of ['ok','http','auth','json','network']){
+     const gate=deferred(),started=deferred();const before=await snapshot(d);const settled=await d.evaluate('__readSettled');
+     d.plan.student.push(kind==='ok'?{...ok(timed(later,2)),gate,started}:{kind,gate,started});
+     await d.page.locator('#learningProgressBtn').click();await started.promise;
+     assert.equal(await d.page.locator('#learningProgress').getAttribute('aria-busy'),'true');assert.equal(await d.page.locator('[data-progress-set]').count(),0);
+     await d.page.locator('#learningProgressBack').click();gate.release();await d.wait(`__readSettled===${settled+1}`);
+     const after=await snapshot(d);assert.deepEqual(after.data,before.data);assert.equal(after.label,before.label);assert.equal(after.homeHidden,false);assert.equal(after.loginHidden,true);assert.equal(await d.page.locator('#learningProgressBtn').evaluate(e=>e===document.activeElement),true);
+    }
+   }finally{await d.close()}
+  });
+  await test('Chromium LP-19 CSS 200% stress and equivalent half-width reflow (native zoom pending)',async()=>{
+   const data=visualFixture(5),d=await browserDriver(browser,ok(data));try{
+    await open(d,data);
+    for(const width of visualBaseline.widths){
+     await d.page.setViewportSize({width,height:1000});await d.page.evaluate(()=>document.body.style.zoom='2');await noOverflow(d.page);await capture(d.page,`css-zoom-200-${width}`);
+     await d.page.evaluate(()=>document.body.style.zoom='1');await d.page.setViewportSize({width:width/2,height:1000});await noOverflow(d.page);await capture(d.page,`reflow-half-width-${width}`);
+    }
+   }finally{await d.close()}
+  });
+ }finally{
+  fs.writeFileSync(path.join(output,'proof.json'),JSON.stringify(proof,null,2));
+  console.log('Synthetic screenshots and measurement context: '+output);
+  if(!visualBaseline.humanReviewed)console.log('Golden comparison NOT performed: no independently reviewed PNG baseline. Native browser zoom and SVG screenshot review remain pending.');
+ }
+}
 (async()=>{
  const args=process.argv.slice(2);assert.ok(args.every(a=>a==='--vm-only'),'unknown argument');
  await vmTests();
@@ -531,3 +740,4 @@ async function browserTimeLifecycle(create){
  else await browserTests();
  console.log(`PASS ${tests} frontend acceptance groups (${args.includes('--vm-only')?'VM only':'VM + real Chromium'}).`);
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
