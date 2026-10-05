@@ -24,19 +24,24 @@ const response=(status,data)=>({status,ok:status>=200&&status<300,json:async()=>
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 let tests=0;
 async function test(name,fn){await fn();tests++;console.log('PASS '+name);}
-function domBox(){
+function domBox(fetchAdapter){
  const elements={};
  for(const m of html.matchAll(/id="([^"]+)"/g)){
   const classes=new Set(m[0].includes('hidden')?['hidden']:[]);
   // Initial hidden state is extracted from the full element tag.
   const tag=html.slice(html.lastIndexOf('<',m.index),html.indexOf('>',m.index)+1);
   if(/class="[^"]*\bhidden\b/.test(tag))classes.add('hidden');
-  elements[m[1]]={id:m[1],tagName:tag.startsWith('<a ')?'A':'DIV',textContent:'',innerHTML:'',style:{},value:'',attrs:{},
+  const initialText=html.slice(html.indexOf('>',m.index)+1,html.indexOf('<',html.indexOf('>',m.index)+1));
+  elements[m[1]]={id:m[1],tagName:tag.startsWith('<a ')?'A':'DIV',textContent:initialText,innerHTML:'',style:{},value:'',attrs:{},listeners:{},
    classList:{add:c=>classes.add(c),remove:c=>classes.delete(c),contains:c=>classes.has(c),toggle(c,on){if(on)classes.add(c);else classes.delete(c)}},
-   focus(){elements.focused=this.id},setAttribute(k,v){this.attrs[k]=v},removeAttribute(k){delete this.attrs[k]},addEventListener(){},scrollIntoView(){}};
+   focus(){elements.focused=this.id},setAttribute(k,v){this.attrs[k]=v},removeAttribute(k){delete this.attrs[k]},addEventListener(k,fn){this.listeners[k]=fn},scrollIntoView(){}};
  }
  const calls=[];
  const box={...elements,document:{getElementById:id=>elements[id]},window:{scrollTo(){}},fetch:async(url,options)=>{calls.push({url,options});assert.equal(url,'/api/student');return response(200,fixture());}};
+ if(fetchAdapter)box.fetch=fetchAdapter;
+ const forbiddenStorage=new Proxy({}, {get(){throw Error('Unexpected persistent storage access')},set(){throw Error('Unexpected persistent storage write')}});
+ box.localStorage=box.sessionStorage=forbiddenStorage;
+ Object.defineProperty(box.document,'cookie',{get(){return 'synthetic_auth=preserved'},set(){throw Error('Unexpected cookie write')}});
  vm.createContext(box);vm.runInContext(script,box);return {box,elements,calls};
 }
 async function vmTests(){
@@ -109,6 +114,215 @@ async function vmTests(){
   failSave=false;failRefresh=true;box.checkQuiz();await tick();assert.equal(e.checkQuizBtn.textContent,'WYNIK ZAPISANY');assert.match(e.quizResult.innerHTML,/zapisano próbę 2/);assert.equal(refreshed,2);
  });
  await proxyTests();
+ await timeTests(vmDriver,'VM');
+}
+const winter='2026-01-15T09:15:00.000Z',later='2026-01-15T09:20:00.000Z';
+const timeLabel=t=>'Dane odświeżono: '+t;
+function timed(value=winter,marker=1){
+ const d=fixture(marker!==1);d.dataGeneratedAt=value;d.generatedAt=later;
+ d.stats={quizzesCompleted:marker,latestQuizPercent:marker===1?80:90,masteredTotal:marker};
+ return d;
+}
+const ok=data=>({kind:'ok',data});
+const failureKinds=['network','http','json'];
+const invalidTimes=[undefined,null,'',0,'invalid','2026-02-30T09:15:00.000Z','2026-01-15T09:15:00+00:00','2026-01-15T09:15:00','2026-01-15T24:00:00Z','2026-01-15T09:60:00Z','2026-13-15T09:15:00Z','2026-01-15T09:15:60Z',' 2026-01-15T09:15:00Z',{},true];
+function deferred(){let release;const promise=new Promise(r=>release=r);return {promise,release};}
+function networkPlan(initial){
+ const p={student:[initial],save:[],login:[],counts:{student:0,save:0,login:0},unexpected:[]};
+ p.take=(url,options={})=>{
+  const key={'/api/student':'student','/api/quiz-submit':'save','/api/login':'login'}[url];
+  assert.ok(key,'Unexpected request '+url);p.counts[key]++;
+  assert.equal(options.credentials,'same-origin');
+  if(key==='student'){assert.equal(options.method||'GET','GET');assert.equal(options.cache,'no-store');}
+  else {assert.equal(options.method,'POST');const body=JSON.parse(options.body);if(key==='save')assert.deepEqual(body,{setWeek:2,batch:1,answers:['synthetic answer']});else assert.deepEqual(body,{pin:'synthetic-pin'});}
+  const entry=p[key].shift();assert.ok(entry,'Unplanned request '+url);if(entry.started)entry.started.release();return entry;
+ };
+ p.check=()=>{assert.deepEqual(p.unexpected,[]);for(const key of ['student','save','login'])assert.equal(p[key].length,0,'Unconsumed '+key+' mock');};
+ return p;
+}
+async function vmDriver(initial=ok(timed())){
+ const plan=networkPlan(initial);
+ const fetchAdapter=async(url,options)=>{
+  const entry=plan.take(url,options);if(entry.gate)await entry.gate.promise;
+  if(entry.kind==='network')throw Error('synthetic offline');
+  if(entry.kind==='json')return {status:200,ok:true,json:async()=>{throw SyntaxError('synthetic malformed JSON')}};
+  const status=entry.kind==='http'?502:entry.kind==='auth'?401:200;
+  return response(status,entry.kind==='ok'?entry.data:{error:'synthetic failure'});
+ };
+ const {box,elements}=domBox(fetchAdapter);box.document.querySelector=()=>({value:'synthetic answer'});
+ Object.defineProperty(box.document,'activeElement',{get:()=>elements[elements.focused]});
+ box.__readSettled=0;const original=box.refreshStudentProgress;
+ box.refreshStudentProgress=async function(){try{return await original()}finally{box.__readSettled++}};
+ await tick();
+ const d={plan,evaluate:async expr=>vm.runInContext(expr,box),
+  async wait(expr){await tick();assert.equal(Boolean(vm.runInContext(expr,box)),true,expr)},
+  async startSubmit(){box.showQuiz();box.checkQuiz();await tick()},
+  async submit(){await this.startSubmit()},
+  async login(){elements.pin.value='synthetic-pin';elements.loginForm.listeners.submit({preventDefault(){}});await tick()},
+  async close(){plan.check()},box};
+ return d;
+}
+const snapshotExpr=`({label:document.getElementById('dataRefreshTime').textContent,
+ data:DATA,progress:progressText.textContent,result:quizResult.innerHTML,
+ button:checkQuizBtn.textContent,disabled:checkQuizBtn.disabled,
+ homeHidden:home.classList.contains('hidden'),quizHidden:quiz.classList.contains('hidden'),
+ loginHidden:login.classList.contains('hidden'),error:error.textContent,state:learningProgressState.textContent})`;
+async function snapshot(d){return plain(await d.evaluate(snapshotExpr));}
+async function expectLabel(d,time){await d.wait(`document.getElementById('dataRefreshTime').textContent===${JSON.stringify(timeLabel(time))}`);}
+async function readThrough(d,entry,path='progress'){
+ d.plan.student.push(entry);
+ await d.evaluate(path==='load'?'loadData()':'showLearningProgress()');
+}
+async function assertSaved(d){
+ const s=await snapshot(d);assert.equal(s.button,'WYNIK ZAPISANY');assert.equal(s.disabled,true);
+ assert.match(s.result,/Wynik: 80%/);assert.match(s.result,/4 \/ 5 pkt/);assert.match(s.result,/zapisano próbę 2/);
+ assert.doesNotMatch(s.result,/Nie zapisano wyniku/);return s;
+}
+async function timeTests(create,prefix){
+ await test(prefix+' TIME-03 pending first read has initial placeholder and loading screen',async()=>{
+  const gate=deferred(),started=deferred();const d=await create({...ok(timed()),gate,started});
+  try{
+   await started.promise;await expectLabel(d,'—');const s=await snapshot(d);assert.equal(s.data,null);assert.equal(s.homeHidden,true);
+   assert.equal(await d.evaluate(`loading.classList.contains('hidden')`),false);
+   gate.release();await d.wait(`!home.classList.contains('hidden')`);await expectLabel(d,'10:15');
+  }finally{gate.release();await d.close()}
+ });
+ await test(prefix+' TIME-04 valid leap day, seconds and fractional seconds',async()=>{
+  const d=await create();try{
+   for(const stamp of ['2024-02-29T09:15:00Z','2024-02-29T09:15:00.1Z','2024-02-29T09:15:00.12Z','2024-02-29T09:15:00.123Z','2024-02-29T09:15:00.123456Z']){
+    await readThrough(d,ok(timed(stamp)));await expectLabel(d,'10:15');
+   }
+   await readThrough(d,ok(timed('2026-02-29T09:15:00Z')));await expectLabel(d,'—');
+   await readThrough(d,{kind:'http'});await expectLabel(d,'10:15');
+  }finally{await d.close()}
+ });
+ await test(prefix+' TIME-17 empty and incomplete history update home time while retaining progress view',async()=>{
+  const d=await create();try{
+   const empty=timed(later,2);empty.learningProgress={summary:{setsCompleted:0,batchesSent:0,quizzesCompleted:0},sets:[]};
+   await readThrough(d,ok(empty));await expectLabel(d,'10:20');assert.match((await snapshot(d)).state,/Brak potwierdzonych/);
+   const incomplete=timed(winter,3);incomplete.learningProgress.incomplete=true;
+   Object.assign(incomplete.learningProgress.sets[0],{masteryPercent:null,masteredWords:null,difficultWords:null,incomplete:true,availabilityReason:'Niekompletna historia'});
+   await readThrough(d,ok(incomplete));await expectLabel(d,'10:15');assert.match((await snapshot(d)).state,/Niektóre dane/);
+   assert.equal((await snapshot(d)).homeHidden,true);assert.match((await snapshot(d)).progress,/3 quizy/);
+   await readThrough(d,{kind:'http'});await expectLabel(d,'10:15');assert.equal((await snapshot(d)).data.stats.masteredTotal,3);
+  }finally{await d.close()}
+ });
+ await test(prefix+' TIME-04/05/17 winter, summer, midnight, subsequent read and restored latest time',async()=>{
+  const d=await create();try{
+   await expectLabel(d,'10:15');
+   for(const [stamp,label] of [['2026-07-15T08:15:00.000Z','10:15'],['2026-01-15T23:05:00.000Z','00:05'],[later,'10:20']]){
+    await readThrough(d,ok(timed(stamp,2)));await expectLabel(d,label);
+    const s=await snapshot(d);assert.equal(s.homeHidden,true);assert.match(s.progress,/2 quizy/);assert.equal(s.data.dataGeneratedAt,stamp);
+   }
+   await readThrough(d,{kind:'http'});await expectLabel(d,'10:20');assert.match((await snapshot(d)).state,/Nie udało/);
+   await d.evaluate('returnFromLearningProgress()');assert.equal((await snapshot(d)).homeHidden,false);
+  }finally{await d.close()}
+ });
+ await test(prefix+' TIME-06/08 complete invalid-time matrix accepts data, avoids generatedAt fallback and retains memory',async()=>{
+  const d=await create();try{
+   for(const [i,value] of invalidTimes.entries()){
+    const data=timed(value,i+2);if(value===undefined)delete data.dataGeneratedAt;
+    await readThrough(d,ok(data));await expectLabel(d,'—');
+    let s=await snapshot(d);assert.equal(s.data.stats.masteredTotal,i+2);assert.match(s.progress,new RegExp((i+2)+' opanowanych'));
+    await readThrough(d,{kind:'http'});await expectLabel(d,'10:15');s=await snapshot(d);assert.equal(s.data.stats.masteredTotal,i+2);
+   }
+  }finally{await d.close()}
+ });
+ for(const kind of failureKinds){
+  for(const path of ['load','progress'])for(const remembered of [false,true]){
+   await test(`${prefix} TIME-07 ${path} ${kind} remembered=${remembered}`,async()=>{
+    const d=await create(ok(timed(remembered?winter:null)));try{
+     if(remembered)await readThrough(d,ok(timed(null,2)),path);
+     const before=(await snapshot(d)).data;
+     await readThrough(d,{kind},path);await expectLabel(d,remembered?'10:15':'—');
+     const s=await snapshot(d);assert.deepEqual(s.data,before);
+     assert.match(path==='load'?s.error:s.state,/Nie udało/);
+    }finally{await d.close()}
+   });
+  }
+  await test(`${prefix} TIME-07 initial ${kind} leaves DATA empty`,async()=>{
+   const d=await create({kind});try{await expectLabel(d,'—');const s=await snapshot(d);assert.equal(s.data,null);assert.equal(s.homeHidden,true);assert.match(s.error,/Nie udało/);}finally{await d.close()}
+  });
+ }
+ await test(prefix+' TIME-09 initial 401, focus, later login and 401 after invalid success',async()=>{
+  const d=await create({kind:'auth'});try{
+   await expectLabel(d,'—');assert.equal((await snapshot(d)).loginHidden,false);await d.wait(`typeof document.activeElement==='undefined'?focused==='pin':document.activeElement.id==='pin'`);
+   d.plan.login.push(ok({ok:true}));d.plan.student.push(ok(timed()));await d.login();await expectLabel(d,'10:15');
+   assert.equal((await snapshot(d)).homeHidden,false);
+   await readThrough(d,ok(timed(null,2)));await expectLabel(d,'—');
+   await readThrough(d,{kind:'auth'});await expectLabel(d,'10:15');
+   const s=await snapshot(d);assert.equal(s.homeHidden,true);assert.equal(s.loginHidden,false);assert.equal(s.data.stats.masteredTotal,2);
+   await d.wait(`typeof document.activeElement==='undefined'?focused==='pin':document.activeElement.id==='pin'`);
+   d.plan.login.push(ok({ok:true}));d.plan.student.push(ok(timed(later,3)));await d.login();await expectLabel(d,'10:20');
+   assert.deepEqual(d.plan.counts,{student:5,save:0,login:2});
+  }finally{await d.close()}
+ });
+ for(const outcome of ['valid','invalid',...failureKinds,'auth'])for(const remembered of [true,false]){
+  await test(`${prefix} TIME-10–13 saved quiz read=${outcome} remembered=${remembered}`,async()=>{
+   const d=await create(ok(timed(remembered?winter:null)));try{
+    // Make the currently displayed time invalid; failures must use separate memory.
+    await readThrough(d,ok(timed(null)));await d.evaluate('showHome()');
+    const before=(await snapshot(d)).data;
+    const entry=outcome==='valid'?ok(timed(later,2)):outcome==='invalid'?ok(timed('2026-02-30T09:15:00.000Z',2)):{kind:outcome};
+    d.plan.save.push(ok({ok:true,percent:80,score:4,maxScore:5,attemptNo:2}));d.plan.student.push(entry);
+    const reads=d.plan.counts.student;await d.submit();
+    const expected=outcome==='valid'?'10:20':outcome==='invalid'?'—':remembered?'10:15':'—';await expectLabel(d,expected);
+    const s=await assertSaved(d);assert.equal(d.plan.counts.save,1);assert.equal(d.plan.counts.student,reads+1);
+    if(outcome==='valid'||outcome==='invalid'){
+     assert.equal(s.data.stats.masteredTotal,2);assert.match(s.progress,/2 quizy/);assert.match(s.progress,/90%/);assert.equal(s.data.learningProgress.sets[0].batches[0].masteryPercent,60);
+    }else assert.deepEqual(s.data,before);
+    if(outcome==='auth'){
+     assert.equal(s.loginHidden,false);assert.equal(s.homeHidden,true);assert.equal(s.quizHidden,true);
+     await d.wait(`typeof document.activeElement==='undefined'?focused==='pin':document.activeElement.id==='pin'`);
+    }else{assert.equal(s.quizHidden,false);assert.equal(s.homeHidden,true);}
+    if(outcome==='invalid'){
+     await d.evaluate('showHome()');assert.match((await snapshot(d)).progress,/2 quizy/);await expectLabel(d,'—');
+     await readThrough(d,{kind:'http'});await expectLabel(d,remembered?'10:15':'—');assert.equal((await snapshot(d)).result,s.result);
+    }
+    if(outcome==='valid'){await d.evaluate('showHome()');await expectLabel(d,'10:20');assert.match((await snapshot(d)).progress,/2 quizy/);}
+   }finally{await d.close()}
+  });
+ }
+ for(const kind of [...failureKinds,'rejected']){
+  await test(`${prefix} TIME-14 unconfirmed POST ${kind} does not GET or touch timestamp memory`,async()=>{
+   const d=await create();try{
+    await readThrough(d,ok(timed(null)));await expectLabel(d,'—');await d.evaluate('showHome()');
+    d.plan.save.push(kind==='rejected'?ok({ok:false,error:'synthetic rejection'}):{kind});
+    const before=await snapshot(d),reads=d.plan.counts.student;
+    await d.submit();const s=await snapshot(d);assert.match(s.result,/Nie zapisano wyniku/);assert.equal(s.disabled,false);
+    assert.equal(s.label,before.label);assert.deepEqual(s.data,before.data);assert.equal(d.plan.counts.student,reads);assert.equal(d.plan.counts.save,1);
+    await readThrough(d,{kind:'http'});await expectLabel(d,'10:15');assert.equal(d.plan.counts.save,1);
+   }finally{await d.close()}
+  });
+ }
+ for(const kind of [...failureKinds,'auth']){
+  await test(`${prefix} TIME-12/13 exact saved result DOM survives delayed ${kind} read`,async()=>{
+   const d=await create();const gate=deferred(),started=deferred();try{
+    await readThrough(d,ok(timed(null)));await d.evaluate('showHome()');
+    const settled=await d.evaluate('__readSettled'),reads=d.plan.counts.student;
+    d.plan.save.push(ok({ok:true,percent:80,score:4,maxScore:5,attemptNo:2}));d.plan.student.push({kind,gate,started});
+    await d.startSubmit();await started.promise;const before=await assertSaved(d);await expectLabel(d,'—');
+    gate.release();await d.wait(`__readSettled===${settled+1}`);await expectLabel(d,'10:15');
+    const after=await assertSaved(d);assert.equal(after.result,before.result);assert.deepEqual(after.data,before.data);
+    assert.equal(after.button,before.button);assert.equal(after.disabled,before.disabled);
+    assert.equal(d.plan.counts.student,reads+1);assert.equal(d.plan.counts.save,1);
+   }finally{gate.release();await d.close()}
+  });
+ }
+ await test(prefix+' TIME-16 older success and older failure cannot change accepted data/time/memory',async()=>{
+  const d=await create();try{
+   for(const kind of ['ok',...failureKinds,'auth']){
+    const gate=deferred(),started=deferred();d.plan.student.push(kind==='ok'?{...ok(timed(winter,1)),gate,started}:{kind,gate,started});
+    const older=d.evaluate('refreshStudentProgress()');
+    await started.promise;
+    await readThrough(d,ok(timed(later,2)));await expectLabel(d,'10:20');
+    gate.release();assert.equal(await older,null);await expectLabel(d,'10:20');
+    assert.equal((await snapshot(d)).data.stats.masteredTotal,2);assert.equal((await snapshot(d)).loginHidden,true);
+   }
+   await readThrough(d,ok(timed(null,3)));await readThrough(d,{kind:'http'});await expectLabel(d,'10:20');
+   assert.equal((await snapshot(d)).data.stats.masteredTotal,3);
+  }finally{await d.close()}
+ });
 }
 async function proxyTests(){
  await test('AC-12 real proxy/auth source with synthetic config and fully mocked upstream',async()=>{
@@ -211,7 +425,104 @@ async function browserTests(){
    status=401;await page.locator('#learningProgressBack').click();await page.locator('#learningProgressBtn').click();await visible('#login');assert.equal(await page.locator('#learningProgress').isVisible(),false);assert.equal(await page.locator('#pin').evaluate(e=>e===document.activeElement),true);
   });
   assert.deepEqual(unexpected,[],'all requests must be locally mocked');assert.deepEqual(errors,[],'no page errors');await context.close();
+  const create=(initial,options)=>browserDriver(browser,initial,options);
+  await timeTests(create,'Chromium UTC');
+  await browserTimeLifecycle(create);
  }finally{await browser.close();}
+}
+async function browserDriver(browser,initial=ok(timed()),options={}){
+ const plan=networkPlan(initial),errors=[];
+ const context=await browser.newContext({viewport:{width:1280,height:900},timezoneId:options.timezone||'UTC',serviceWorkers:'block'});
+ await context.addCookies([{name:'synthetic_auth',value:'preserved',url:'https://synthetic.invalid',httpOnly:true,sameSite:'Lax'}]);
+ await context.addInitScript(()=>{
+  window.__syntheticRequests=[];window.__storageWrites=[];
+  const original=window.fetch;
+  window.fetch=function(url,options){window.__syntheticRequests.push({url,options});return original.call(this,url,options)};
+  const store=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(key,value){window.__storageWrites.push({key,value});return store.call(this,key,value)};
+ });
+ const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+ await context.route('**/*',async route=>{
+  const req=route.request(),url=new URL(req.url());
+  try{
+   assert.equal(url.origin,'https://synthetic.invalid','external request');
+   if(url.pathname==='/'){assert.equal(req.method(),'GET');return await route.fulfill({contentType:'text/html',body:html});}
+   const recorded=await page.evaluate(()=>window.__syntheticRequests.shift());
+   assert.ok(recorded,'Request must originate from the app fetch');assert.equal(recorded.url,url.pathname);
+   assert.equal(req.method(),recorded.options.method||'GET');
+   const entry=plan.take(url.pathname,recorded.options);
+   if(entry.gate)await entry.gate.promise;
+   if(entry.kind==='network')return await route.abort('failed');
+   const status=entry.kind==='http'?502:entry.kind==='auth'?401:200;
+   return await route.fulfill({status,contentType:'application/json',headers:{'Cache-Control':'no-store'},body:entry.kind==='json'?'{malformed':JSON.stringify(entry.kind==='ok'?entry.data:{error:'synthetic failure'})});
+  }catch(e){plan.unexpected.push(e.message);await route.abort();}
+ });
+ await page.goto('https://synthetic.invalid/',{waitUntil:'domcontentloaded'});
+ if(!initial.gate)await page.waitForFunction(()=>loading.classList.contains('hidden'));
+ // Observe completion without changing the application's requests or response handling.
+ await page.evaluate(()=>{
+  window.__readSettled=0;const original=refreshStudentProgress;
+  refreshStudentProgress=async function(){try{return await original()}finally{window.__readSettled++}};
+ });
+ return {plan,page,context,
+  evaluate:expr=>page.evaluate(expr),wait:expr=>page.waitForFunction(expr),
+  async startSubmit(){
+   await page.evaluate(()=>showHome());await page.locator('#quizBtn').click();
+   await page.locator('input.quiz-input').fill('synthetic answer');await page.locator('#checkQuizBtn').click();
+   await page.waitForFunction(()=>checkQuizBtn.textContent!=='ZAPISUJĘ WYNIK…');
+  },
+  async submit(){
+   const reads=await page.evaluate(()=>window.__readSettled),willRefresh=plan.save[0].kind==='ok'&&plan.save[0].data.ok;
+   await this.startSubmit();
+   if(willRefresh)await page.waitForFunction(n=>window.__readSettled===n+1,reads);
+  },
+  async login(){
+   await page.locator('#pin').fill('synthetic-pin');await page.locator('#loginForm button').click();
+   await page.waitForFunction(()=>login.classList.contains('hidden')&&loading.classList.contains('hidden'));
+  },
+  async close(){
+   try{
+    plan.check();assert.deepEqual(errors,[],'no page errors');
+    const stores=await page.evaluate(()=>({local:{...localStorage},session:{...sessionStorage},writes:window.__storageWrites}));
+    assert.deepEqual(stores,{local:{},session:{},writes:[]});
+    const cookies=await context.cookies();assert.equal(cookies.length,1);assert.equal(cookies[0].name,'synthetic_auth');assert.equal(cookies[0].value,'preserved');
+   }finally{await context.close()}
+  }
+ };
+}
+async function browserTimeLifecycle(create){
+ await test('Chromium TIME-03/15 initial HTML, pending read, reload resets memory and preserves auth cookie',async()=>{
+  const initial=deferred(),started=deferred();const d=await create({...ok(timed()),gate:initial,started});
+  let next;
+  try{
+   await started.promise;await expectLabel(d,'—');assert.equal(await d.page.locator('#home').isVisible(),false);
+   assert.equal(await d.page.locator('#loading').isVisible(),true);assert.match(await d.page.locator('#loading').innerText(),/Ładowanie/);
+   initial.release();await d.page.locator('#home').waitFor({state:'visible'});await expectLabel(d,'10:15');
+   next=deferred();const nextStarted=deferred();d.plan.student.push({kind:'http',gate:next,started:nextStarted});
+   await d.page.reload({waitUntil:'domcontentloaded'});await nextStarted.promise;await expectLabel(d,'—');
+   assert.equal(await d.page.locator('#home').isVisible(),false);assert.equal(await d.page.locator('#loading').isVisible(),true);
+   next.release();await d.page.locator('#error').waitFor({state:'visible'});await expectLabel(d,'—');assert.equal((await snapshot(d)).data,null);
+  }finally{initial.release();if(next)next.release();await d.close()}
+ });
+ await test('Chromium TIME-04 browser Europe/Warsaw agrees on winter, summer and midnight',async()=>{
+  const d=await create(ok(timed()),{timezone:'Europe/Warsaw'});try{
+   await expectLabel(d,'10:15');
+   for(const [stamp,label] of [['2026-07-15T08:15:00.000Z','10:15'],['2026-01-15T23:05:00.000Z','00:05']]){
+    await readThrough(d,ok(timed(stamp)));await expectLabel(d,label);
+   }
+  }finally{await d.close()}
+ });
+ await test('Chromium TIME-03/17 time label accessible at widths 320/1280 and zoom 200%',async()=>{
+  const d=await create();try{
+   assert.equal(await d.page.locator('#dataRefreshTime').getAttribute('role'),'status');
+   for(const width of [320,1280])for(const zoom of [1,2]){
+    await d.page.setViewportSize({width,height:900});await d.page.evaluate(z=>document.body.style.zoom=String(z),zoom);
+    await expectLabel(d,'10:15');assert.equal(await d.page.locator('#dataRefreshTime').isVisible(),true);
+    const fits=await d.page.locator('#dataRefreshTime').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&e.scrollWidth<=e.clientWidth+1});
+    assert.equal(fits,true,`label overflow width=${width} zoom=${zoom}`);
+   }
+  }finally{await d.close()}
+ });
 }
 (async()=>{
  const args=process.argv.slice(2);assert.ok(args.every(a=>a==='--vm-only'),'unknown argument');
