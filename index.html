@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="pl">
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>
 :root{--bg:#f7f9fc;--ink:#10182d;--muted:#60708a;--green:#13a653;--blue:#1478f5;--orange:#ff7614;--purple:#7a31ee}
 *{box-sizing:border-box}html,body{margin:0;width:100%;min-height:100%;-webkit-text-size-adjust:100%}
@@ -95,6 +96,20 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
  #quiz .quiz-input{font-size:15px}
  #quiz .quiz-submit{font-size:15px}
 }
+
+#learningProgress{max-width:1100px;margin:auto;overflow-wrap:anywhere}
+#learningProgress .page-head{grid-template-columns:52px minmax(0,1fr)}
+#learningProgress .page-title{font-size:clamp(22px,5vw,34px);letter-spacing:normal}
+.lp-counters,.lp-batches{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:16px}
+.lp-counter,.lp-set,.lp-batch{padding:16px;background:#fff;border:1px solid #d9e0ea;border-radius:16px;min-width:0}
+.lp-counter strong{display:block;font-size:28px}.lp-set{margin-top:20px}.lp-set h2{margin-top:0}
+.lp-track{height:20px;background:#e8ecf3;border-radius:8px;overflow:hidden;margin:12px 0}
+.lp-fill{height:100%;background:#758094}.lp-high .lp-fill{background:#16843e}.lp-mid .lp-fill{background:#ba8100}.lp-low .lp-fill{background:#bf3434}
+.lp-column{height:120px;display:flex;align-items:flex-end;max-width:68px;margin:12px auto;background:#e8ecf3;border-radius:6px;overflow:hidden}.lp-column .lp-fill{width:100%}
+.lp-up{color:#12652e}.lp-down{color:#a32525}.lp-flat{color:#46536a}
+.lp-note{color:#526079;line-height:1.5}.lp-state{padding:20px 0;line-height:1.5}
+#learningProgress summary{cursor:pointer;padding:20px 0;font-weight:bold}
+#learningProgress button:focus-visible,#learningProgress summary:focus-visible,#learningProgressBtn:focus-visible{outline:3px solid #123d84;outline-offset:4px}
 </style>
 </head>
 <body>
@@ -107,8 +122,14 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
   <button id="quizBtn" class="menu-card blue" onclick="showQuiz()"><span class="menu-icon">🧠</span><span class="menu-copy"><span class="menu-title">QUIZ ZE SŁÓWEK</span><span class="menu-sub">Sprawdź swoją wiedzę</span></span><span class="chev">›</span></button>
   <a id="audioBtn" class="menu-card orange" target="_blank"><span class="menu-icon">🎧</span><span class="menu-copy"><span class="menu-title">SŁUCHAM MP3</span><span class="menu-sub">Pełna sesja do nauki</span></span><span class="chev">›</span></a>
   <button class="menu-card purple" onclick="showVocabularyHistory()"><span class="menu-icon">☷</span><span class="menu-copy"><span class="menu-title">WSZYSTKIE SŁÓWKA</span><span class="menu-sub">Zobacz wszystkie wysłane słowa</span></span><span class="chev">›</span></button>
+  <button id="learningProgressBtn" class="menu-card blue" onclick="showLearningProgress()"><span class="menu-icon" aria-hidden="true">📊</span><span class="menu-copy"><span class="menu-title">Status postępu nauki</span><span class="menu-sub">Historia setów i batchów</span></span><span class="chev" aria-hidden="true">›</span></button>
  </div>
  <div class="progress-card"><span class="progress-icon">🏆</span><div><div class="progress-title">Twój postęp</div><div id="progressText" class="progress-sub"></div></div></div>
+</section>
+<section id="learningProgress" class="hidden" aria-labelledby="learningProgressTitle">
+ <div class="page-head"><button id="learningProgressBack" class="back" aria-label="Powrót do ekranu głównego" onclick="returnFromLearningProgress()">‹</button><h1 id="learningProgressTitle" class="page-title" tabindex="-1">Status postępu nauki</h1></div>
+ <div id="learningProgressState" class="lp-state" role="status" aria-live="polite"></div>
+ <div id="learningProgressContent"></div>
 </section>
 <section id="words" class="hidden"><div class="page-head"><button class="back" onclick="showHome()">‹</button><div class="page-title">Słowa z setu</div><span></span></div><div id="wordList"></div></section>
 <section id="quiz" class="hidden"><div class="page-head"><button class="back" onclick="showHome()">‹</button><div class="page-title">Quiz ze słówek</div><span></span></div><div id="quizList"></div><button id="checkQuizBtn" class="quiz-submit" onclick="checkQuiz()">SPRAWDŹ WYNIK</button><div id="quizResult" class="progress-card hidden"></div></section>
@@ -129,11 +150,11 @@ if (API_URL) loadData();
 else init({learner:'',setWeek:'—',words:[],currentSetWords:[],allSentWords:[],audioUrl:'',quizUrl:'',stats:{quizzesCompleted:0,latestQuizPercent:null,masteredTotal:0}});
 
 function loadData(){
-  fetch(API_URL,{credentials:'same-origin'})
+  fetch(API_URL,{credentials:'same-origin',cache:'no-store'})
     .then(r=>{if(r.status===401){showLogin();return null}if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
     .then(d=>{if(d)init(d)}).catch(fail);
 }
-function showLogin(){loading.classList.add('hidden');error.classList.add('hidden');login.classList.remove('hidden');pin.focus()}
+function showLogin(){hidePages();loading.classList.add('hidden');error.classList.add('hidden');login.classList.remove('hidden');pin.focus()}
 loginForm.addEventListener('submit',function(e){
   e.preventDefault();loginMsg.textContent='';
   fetch('/api/login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:pin.value})})
@@ -174,7 +195,7 @@ function checkQuiz(){
   checkQuizBtn.disabled=true;checkQuizBtn.textContent='ZAPISUJĘ WYNIK…';
   fetch('/api/quiz-submit',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({setWeek:DATA.setWeek,batch:DATA.batch,answers})})
     .then(async r=>{const x=await r.json().catch(()=>({}));if(!r.ok||!x.ok)throw new Error(x.error||'HTTP '+r.status);return x})
-    .then(x=>{quizResult.classList.remove('hidden');quizResult.innerHTML='<span class="progress-icon">🏆</span><div><div class="progress-title">Wynik: '+Math.round(x.percent)+'%</div><div class="progress-sub">'+x.score+' / '+x.maxScore+' pkt • odpowiedzi '+answered+' / '+qs.length+' • zapisano próbę '+x.attemptNo+'</div></div>';quizResult.scrollIntoView({behavior:'smooth'});checkQuizBtn.textContent='WYNIK ZAPISANY';})
+    .then(x=>{quizResult.classList.remove('hidden');quizResult.innerHTML='<span class="progress-icon">🏆</span><div><div class="progress-title">Wynik: '+Math.round(x.percent)+'%</div><div class="progress-sub">'+x.score+' / '+x.maxScore+' pkt • odpowiedzi '+answered+' / '+qs.length+' • zapisano próbę '+x.attemptNo+'</div></div>';quizResult.scrollIntoView({behavior:'smooth'});checkQuizBtn.textContent='WYNIK ZAPISANY';refreshStudentProgress().catch(()=>{});})
     .catch(e=>{checkQuizBtn.disabled=false;checkQuizBtn.textContent='SPRAWDŹ WYNIK';quizResult.classList.remove('hidden');quizResult.innerHTML='<div><div class="progress-title">Nie zapisano wyniku</div><div class="progress-sub">'+esc(e.message||e)+'</div></div>';});
 }
 function showVocabularyHistory(){hidePages();vocabularyHistory.classList.remove('hidden');VOCAB_SCOPE='set';LEVEL_FILTERS={a:true,b1:true,b2:true};syncVocabularyControls();renderVocabularyHistory();window.scrollTo(0,0)}
@@ -185,9 +206,60 @@ function renderVocabularyHistory(){const source=VOCAB_SCOPE==='set'?(DATA.curren
 function levelGroup(level){const s=String(level||'').toUpperCase().replace(/\s/g,'');if(s.includes('B2')||s.includes('C1')||s.includes('C2'))return'b2';if(s.includes('B1'))return'b1';return'a'}
 function speakWord(word){if(!('speechSynthesis'in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(word);u.lang='en-GB';u.rate=.85;const v=speechSynthesis.getVoices();const p=v.find(x=>String(x.lang).toLowerCase().startsWith('en-gb'))||v.find(x=>String(x.lang).toLowerCase().startsWith('en'));if(p)u.voice=p;speechSynthesis.speak(u)}
 function jsq(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/[\r\n]+/g,' ')}
-function hidePages(){['home','words','quiz','vocabularyHistory'].forEach(id=>document.getElementById(id).classList.add('hidden'))}
+function hidePages(){['home','words','quiz','vocabularyHistory','learningProgress'].forEach(id=>document.getElementById(id).classList.add('hidden'))}
 function showHome(){if(window.speechSynthesis)speechSynthesis.cancel();hidePages();home.classList.remove('hidden');window.scrollTo(0,0)}
 function fail(e){loading.classList.add('hidden');error.classList.remove('hidden');error.textContent='Nie udało się załadować danych: '+(e.message||e)}
+let progressRequest=0;
+async function refreshStudentProgress(){
+ const response=await fetch(API_URL,{credentials:'same-origin',cache:'no-store'});
+ if(response.status===401){showLogin();return null}
+ if(!response.ok)throw new Error('HTTP '+response.status);
+ const data=await response.json();DATA=data;return data;
+}
+async function showLearningProgress(){
+ const request=++progressRequest;
+ hidePages();learningProgress.classList.remove('hidden');
+ learningProgressTitle.focus();window.scrollTo(0,0);
+ learningProgressContent.innerHTML='';learningProgressState.textContent='Ładowanie postępu…';
+ learningProgress.setAttribute('aria-busy','true');
+ try{
+  const data=await refreshStudentProgress();
+  if(request!==progressRequest||learningProgress.classList.contains('hidden'))return;
+  if(data)renderLearningProgress(data.learningProgress);
+ }catch(e){
+  if(request===progressRequest&&!learningProgress.classList.contains('hidden')){
+   learningProgressState.textContent='Nie udało się pobrać postępu. Spróbuj ponownie.';
+   learningProgressContent.innerHTML='<button onclick="showLearningProgress()">Spróbuj ponownie</button>';
+  }
+ }finally{if(request===progressRequest)learningProgress.setAttribute('aria-busy','false')}
+}
+function returnFromLearningProgress(){progressRequest++;showHome();learningProgressBtn.focus()}
+function progressLevel(value){return value==null?'unknown':value>=90?'high':value>=70?'mid':'low'}
+function progressPercent(value){return value==null?'—':value.toLocaleString('pl-PL',{maximumFractionDigits:1})+'%'}
+function progressCounts(item){if(item.sentWords===0)return '0/0';return (item.masteredWords==null?'—':item.masteredWords)+'/'+item.sentWords}
+function progressTrend(batch){
+ const value=batch.trendPp;
+ if(value==null)return '<p class="lp-note">Trend: —. '+esc(batch.trendReason||'Brak porównywalnych prób.')+'</p>';
+ const direction=value>0?'up':value<0?'down':'flat';
+ const label=value>0?'↑ Wzrost':value<0?'↓ Spadek':'→ Bez zmiany';
+ return '<p class="lp-'+direction+'">'+label+' '+(value>0?'+':'')+value.toLocaleString('pl-PL',{maximumFractionDigits:1})+' pp</p>';
+}
+function progressBar(item,label,vertical){
+ const value=item.masteryPercent;
+ const known=value!=null;
+ return '<div class="'+(vertical?'lp-column':'lp-track')+' lp-'+progressLevel(value)+'" role="progressbar" aria-label="'+esc(label)+'" aria-valuemin="0" aria-valuemax="100" '+(known?'aria-valuenow="'+value+'" ':'')+'aria-valuetext="'+esc(progressPercent(value)+'; opanowane/wysłane '+progressCounts(item))+'"><div class="lp-fill" style="'+(vertical?'height':'width')+':'+(known?Math.max(0,Math.min(100,value)):0)+'%"></div></div>';
+}
+function progressSetHtml(set){
+ const level={high:'wysoki',mid:'średni',low:'niski',unknown:'nieznany'};
+ return '<article class="lp-set" data-progress-set="'+esc(set.setWeek)+'"><h2>Set '+esc(set.setWeek)+'</h2><p>'+(set.fullySent?'Wysłany w całości':'Wysyłka nieukończona')+' • Quizy: '+set.quizzesCompleted+'/'+set.plannedBatches+'</p><p>Opanowanie: '+progressPercent(set.masteryPercent)+' • '+progressCounts(set)+' opanowanych/wysłanych • poziom '+level[progressLevel(set.masteryPercent)]+'</p><p>Trudne: '+(set.difficultWords==null?'—':set.difficultWords)+'</p>'+progressBar(set,'Opanowanie setu '+set.setWeek,false)+(set.incomplete?'<p class="lp-note">Niekompletne dane historyczne.</p>':'')+(set.availabilityReason?'<p class="lp-note">'+esc(set.availabilityReason)+'</p>':'')+'<div class="lp-batches">'+set.batches.map(b=>'<article class="lp-batch" data-progress-batch="'+b.batch+'"><h3>Batch '+b.batch+'</h3>'+progressBar(b,'Set '+set.setWeek+', batch '+b.batch,true)+'<p>'+progressPercent(b.masteryPercent)+' • '+progressCounts(b)+' opanowanych/wysłanych</p><p>Poziom: '+level[progressLevel(b.masteryPercent)]+' • Trudne: '+(b.difficultWords==null?'—':b.difficultWords)+'</p><p>'+(b.completed?'Wykonany':b.fullySent?'Wysłany • quiz niewykonany':'Wysyłka nieukończona')+'</p>'+progressTrend(b)+(b.availabilityReason?'<p class="lp-note">'+esc(b.availabilityReason)+'</p>':'')+'</article>').join('')+'</div></article>';
+}
+function renderLearningProgress(progress){
+ if(!progress||!progress.summary||!Array.isArray(progress.sets))throw new Error('Brak kontraktu postępu');
+ const sent=progress.sets.filter(s=>s.lastSentAt).slice().sort((a,b)=>new Date(b.lastSentAt)-new Date(a.lastSentAt)||b.setWeek-a.setWeek);
+ learningProgressState.textContent=sent.length?(progress.incomplete?'Niektóre dane historyczne są niekompletne.':''):'Brak potwierdzonych wysłanych danych.'+(progress.incomplete?' Niekompletne dane historyczne.':'');
+ const labels={setsCompleted:'Sety wykonane',batchesSent:'Batche wysłane',quizzesCompleted:'Quizy wykonane'};
+ learningProgressContent.innerHTML='<div class="lp-counters">'+Object.keys(labels).map(k=>'<div class="lp-counter">'+labels[k]+'<strong data-progress-counter="'+k+'">'+progress.summary[k]+'</strong></div>').join('')+sent.slice(0,2).map(progressSetHtml).join('')+(sent.length>2?'<details id="learningProgressHistory"><summary>Pokaż wcześniejsze sety</summary>'+sent.slice(2).map(progressSetHtml).join('')+'</details>':'');
+}
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 </script>
 </body></html>
