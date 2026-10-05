@@ -725,7 +725,7 @@ async function browserVisualTests(browser){
     await open(d,data);
     for(const width of visualBaseline.widths){
      await d.page.setViewportSize({width,height:1000});await d.page.evaluate(()=>document.body.style.zoom='2');await noOverflow(d.page);await capture(d.page,`css-zoom-200-${width}`);
-     await d.page.evaluate(()=>document.body.style.zoom='1');await d.page.setViewportSize({width:width/2,height:1000});await noOverflow(d.page);await capture(d.page,`reflow-half-width-${width}`);
+     await d.page.evaluate(()=>document.body.style.zoom='1');await d.page.setViewportSize({width:Math.floor(width/2),height:1000});await noOverflow(d.page);await capture(d.page,`reflow-half-width-${width}`);
     }
    }finally{await d.close()}
   });
