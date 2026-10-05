@@ -209,12 +209,14 @@ function jsq(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").r
 function hidePages(){['home','words','quiz','vocabularyHistory','learningProgress'].forEach(id=>document.getElementById(id).classList.add('hidden'))}
 function showHome(){if(window.speechSynthesis)speechSynthesis.cancel();hidePages();home.classList.remove('hidden');window.scrollTo(0,0)}
 function fail(e){loading.classList.add('hidden');error.classList.remove('hidden');error.textContent='Nie udało się załadować danych: '+(e.message||e)}
-let progressRequest=0;
+let progressRequest=0,studentReadRequest=0;
 async function refreshStudentProgress(){
+ const request=++studentReadRequest;
  const response=await fetch(API_URL,{credentials:'same-origin',cache:'no-store'});
+ if(request!==studentReadRequest)return null;
  if(response.status===401){showLogin();return null}
  if(!response.ok)throw new Error('HTTP '+response.status);
- const data=await response.json();DATA=data;return data;
+ const data=await response.json();if(request!==studentReadRequest)return null;DATA=data;return data;
 }
 async function showLearningProgress(){
  const request=++progressRequest;
