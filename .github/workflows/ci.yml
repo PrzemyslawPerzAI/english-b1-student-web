@@ -8,11 +8,20 @@ permissions:
   contents: read
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
       - run: node tests/validate.cjs
       - run: node tests/quiz-submit.cjs
+      - name: Browser acceptance when supplied by an agent candidate
+        if: hashFiles('tests/learning-progress.cjs') != ''
+        run: |
+          npm install --no-save --ignore-scripts --package-lock=false playwright@1.56.1
+          npx --no-install playwright install --with-deps chromium
+          sudo unshare --net -- node tests/learning-progress.cjs
