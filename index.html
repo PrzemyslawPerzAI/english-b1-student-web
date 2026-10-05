@@ -97,19 +97,41 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
  #quiz .quiz-submit{font-size:15px}
 }
 
-#learningProgress{max-width:1100px;margin:auto;overflow-wrap:anywhere}
-#learningProgress .page-head{grid-template-columns:52px minmax(0,1fr)}
-#learningProgress .page-title{font-size:clamp(22px,5vw,34px);letter-spacing:normal}
-.lp-counters,.lp-batches{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:16px}
-.lp-counter,.lp-set,.lp-batch{padding:16px;background:#fff;border:1px solid #d9e0ea;border-radius:16px;min-width:0}
-.lp-counter strong{display:block;font-size:28px}.lp-set{margin-top:20px}.lp-set h2{margin-top:0}
-.lp-track{height:20px;background:#e8ecf3;border-radius:8px;overflow:hidden;margin:12px 0}
-.lp-fill{height:100%;background:#758094}.lp-high .lp-fill{background:#16843e}.lp-mid .lp-fill{background:#ba8100}.lp-low .lp-fill{background:#bf3434}
-.lp-column{height:120px;display:flex;align-items:flex-end;max-width:68px;margin:12px auto;background:#e8ecf3;border-radius:6px;overflow:hidden}.lp-column .lp-fill{width:100%}
-.lp-up{color:#12652e}.lp-down{color:#a32525}.lp-flat{color:#46536a}
-.lp-note{color:#526079;line-height:1.5}.lp-state{padding:20px 0;line-height:1.5}
-#learningProgress summary{cursor:pointer;padding:20px 0;font-weight:bold}
-#learningProgress button:focus-visible,#learningProgress summary:focus-visible,#learningProgressBtn:focus-visible{outline:3px solid #123d84;outline-offset:4px}
+#learningProgress{max-width:1100px;margin:auto;color:#112d55;background:#f4f8fd;overflow-wrap:anywhere;container-type:inline-size}
+#learningProgress .page-head{grid-template-columns:42px minmax(0,1fr);gap:10px;align-items:start}
+#learningProgress .page-title{font-size:clamp(22px,4vw,30px);letter-spacing:normal;text-align:left;line-height:1.2}
+.lp-heading{display:flex;align-items:center;gap:12px}.lp-heading-icon{width:32px;flex:none;color:#6d37ff}
+.lp-subtitle{margin:8px 0 0;font-size:14px;line-height:1.5;color:#465875}
+#learningProgressBtn .menu-icon{background:#ede5ff;color:#6d37ff}
+#learningProgressBtn .menu-icon svg{width:55%;height:55%}
+.lp-counters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.lp-counter,.lp-set,.lp-batch{background:#fff;border:1px solid #d9e5f1;border-radius:15px;min-width:0}
+.lp-counter{padding:14px 6px;text-align:center;font-size:13px;line-height:1.4}.lp-counter svg{display:block;width:30px;height:30px;margin:0 auto 8px;color:#246db4}.lp-counter:first-child svg{color:#7650db}
+.lp-counter strong{display:block;font-size:26px;margin-bottom:5px}.lp-counter span{display:block}
+.lp-set{margin-top:18px;padding:16px}.lp-set-head{display:flex;justify-content:space-between;align-items:start;gap:12px}
+.lp-set h2{margin:4px 0;font-size:23px}.lp-set-label{display:block;font-size:14px;font-weight:normal;margin-top:4px}
+.lp-score{text-align:right}.lp-score strong{display:block;font-size:30px}.lp-score span{display:block;font-size:13px;color:#112d55}
+.lp-track{height:20px;background:#e7eef3;border-radius:10px;overflow:hidden;margin:16px 0}
+.lp-fill{height:100%;background:#758094}.lp-high .lp-fill{background:#10ae46}.lp-mid .lp-fill{background:#ffb800}.lp-low .lp-fill{background:#ff5559}
+.lp-high{color:#007b2f}.lp-mid{color:#895800}.lp-low{color:#b52323}.lp-unknown{color:#465875}
+.lp-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;text-align:center;margin:18px 0}.lp-metrics strong{display:block;font-size:22px}.lp-metrics span{display:block;font-size:13px;margin-top:5px}.lp-mastered{color:#007b2f}.lp-difficult{color:#b52323}
+.lp-batches-title{font-size:17px;margin:22px 0 12px}
+.lp-batches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}
+.lp-batch{padding:12px 6px;background:#fbfdff;text-align:center;font-size:13px;line-height:1.4}
+.lp-batch h3{font-size:14px;font-weight:normal;margin:0 0 8px}.lp-batch-percent{display:block;font-size:21px}
+.lp-column{height:110px;width:50px;display:flex;align-items:flex-end;margin:10px auto;background:#e7eef3;border-radius:8px;overflow:hidden}.lp-column .lp-fill{width:100%}
+.lp-trend{margin:8px 0;min-height:20px;font-size:14px;font-weight:bold}.lp-trend-word{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.lp-counts{display:block;font-size:14px}
+.lp-up{color:#007b2f}.lp-down{color:#b52323}.lp-flat{color:#465875}
+.lp-note{color:#465875;line-height:1.5}.lp-state{padding:12px 0;line-height:1.5}.lp-state:empty{padding:0}
+.lp-data{text-align:left;font-size:13px;color:#465875}.lp-data p{margin:6px 0}
+#learningProgress summary{cursor:pointer;padding:12px 0;font-weight:bold}
+#learningProgressHistory{background:#fff;border:1px solid #d9e5f1;border-radius:15px;margin-top:18px;padding:0 16px}
+.lp-history-set{border-top:1px solid #d9e5f1}.lp-history-set>summary{display:flex;justify-content:space-between;gap:12px}.lp-history-set>summary::before{content:'›';font-size:20px}.lp-history-set[open]>summary::before{content:'⌄'}
+.lp-legend{font-size:13px;line-height:1.6;margin:18px 0;color:#465875}.lp-legend p{margin:5px 0}
+#learningProgress button:focus-visible,#learningProgress summary:focus-visible,#learningProgressTitle:focus-visible,#learningProgressBtn:focus-visible{outline:3px solid #123d84;outline-offset:3px}
+@media(min-width:540px){.lp-batches{grid-template-columns:repeat(var(--lp-columns,5),minmax(0,1fr))}.lp-set-label{display:inline;margin-left:8px}.lp-set{padding:16px}}
+@container(max-width:480px){.lp-batches{grid-template-columns:repeat(2,minmax(0,1fr))}.lp-set-label{display:block;margin-left:0}}
+@container(max-width:240px){.lp-counters,.lp-metrics,.lp-batches{grid-template-columns:minmax(0,1fr)}.lp-set-head{flex-wrap:wrap}.lp-heading{flex-wrap:wrap}}
 </style>
 </head>
 <body>
@@ -122,13 +144,13 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
   <button id="quizBtn" class="menu-card blue" onclick="showQuiz()"><span class="menu-icon">🧠</span><span class="menu-copy"><span class="menu-title">QUIZ ZE SŁÓWEK</span><span class="menu-sub">Sprawdź swoją wiedzę</span></span><span class="chev">›</span></button>
   <a id="audioBtn" class="menu-card orange" target="_blank"><span class="menu-icon">🎧</span><span class="menu-copy"><span class="menu-title">SŁUCHAM MP3</span><span class="menu-sub">Pełna sesja do nauki</span></span><span class="chev">›</span></a>
   <button class="menu-card purple" onclick="showVocabularyHistory()"><span class="menu-icon">☷</span><span class="menu-copy"><span class="menu-title">WSZYSTKIE SŁÓWKA</span><span class="menu-sub">Zobacz wszystkie wysłane słowa</span></span><span class="chev">›</span></button>
-  <button id="learningProgressBtn" class="menu-card blue" onclick="showLearningProgress()"><span class="menu-icon" aria-hidden="true">📊</span><span class="menu-copy"><span class="menu-title">Status postępu nauki</span><span class="menu-sub">Historia setów i batchów</span></span><span class="chev" aria-hidden="true">›</span></button>
+  <button id="learningProgressBtn" class="menu-card purple" onclick="showLearningProgress()"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 32 36" fill="currentColor" aria-hidden="true"><rect x="1" y="20" width="7" height="16" rx="3"/><rect x="12" y="10" width="7" height="26" rx="3"/><rect x="23" y="0" width="7" height="36" rx="3"/></svg></span><span class="menu-copy"><span class="menu-title">Status postępu nauki</span><span class="menu-sub">Historia setów i batchów</span></span><span class="chev" aria-hidden="true">›</span></button>
  </div>
  <div class="progress-card"><span class="progress-icon">🏆</span><div><div class="progress-title">Twój postęp</div><div id="progressText" class="progress-sub"></div></div></div>
  <p id="dataRefreshTime" class="progress-sub" role="status">Dane odświeżono: —</p>
 </section>
 <section id="learningProgress" class="hidden" aria-labelledby="learningProgressTitle">
- <div class="page-head"><button id="learningProgressBack" class="back" aria-label="Powrót do ekranu głównego" onclick="returnFromLearningProgress()">‹</button><h1 id="learningProgressTitle" class="page-title" tabindex="-1">Status postępu nauki</h1></div>
+ <div class="page-head"><button id="learningProgressBack" class="back" aria-label="Powrót do ekranu głównego" onclick="returnFromLearningProgress()">‹</button><div><div class="lp-heading"><span class="lp-heading-icon"><svg viewBox="0 0 32 36" fill="currentColor" aria-hidden="true"><rect x="1" y="20" width="7" height="16" rx="3"/><rect x="12" y="10" width="7" height="26" rx="3"/><rect x="23" y="0" width="7" height="36" rx="3"/></svg></span><h1 id="learningProgressTitle" class="page-title" tabindex="-1">Status postępu nauki</h1></div><p class="lp-subtitle">Sprawdź swój postęp w nauce słówek.</p></div></div>
  <div id="learningProgressState" class="lp-state" role="status" aria-live="polite"></div>
  <div id="learningProgressContent"></div>
 </section>
@@ -257,33 +279,42 @@ async function showLearningProgress(){
   }
  }finally{if(request===progressRequest)learningProgress.setAttribute('aria-busy','false')}
 }
-function returnFromLearningProgress(){progressRequest++;showHome();learningProgressBtn.focus()}
+function returnFromLearningProgress(){progressRequest++;studentReadRequest++;showHome();learningProgressBtn.focus()}
 function progressLevel(value){return value==null?'unknown':value>=90?'high':value>=70?'mid':'low'}
 function progressPercent(value){return value==null?'—':value.toLocaleString('pl-PL',{maximumFractionDigits:1})+'%'}
-function progressCounts(item){if(item.sentWords===0)return '0/0';return (item.masteredWords==null?'—':item.masteredWords)+'/'+item.sentWords}
+function progressCounts(item){return (item.masteredWords==null?'—':item.masteredWords)+'/'+item.sentWords}
 function progressTrend(batch){
  const value=batch.trendPp;
- if(value==null)return '<p class="lp-note">Trend: —. '+esc(batch.trendReason||'Brak porównywalnych prób.')+'</p>';
+ if(value==null)return '<p class="lp-trend lp-flat"><span class="lp-trend-word">Trend: </span>—</p>';
  const direction=value>0?'up':value<0?'down':'flat';
- const label=value>0?'↑ Wzrost':value<0?'↓ Spadek':'→ Bez zmiany';
- return '<p class="lp-'+direction+'">'+label+' '+(value>0?'+':'')+value.toLocaleString('pl-PL',{maximumFractionDigits:1})+' pp</p>';
+ const arrow=value>0?'↑':value<0?'↓':'→',label=value>0?'Wzrost':value<0?'Spadek':'Bez zmiany';
+ return '<p class="lp-trend lp-'+direction+'">'+arrow+' <span class="lp-trend-word">'+label+' </span>'+(value>0?'+':'')+value.toLocaleString('pl-PL',{maximumFractionDigits:1})+' pp</p>';
 }
 function progressBar(item,label,vertical){
  const value=item.masteryPercent;
  const known=value!=null;
  return '<div class="'+(vertical?'lp-column':'lp-track')+' lp-'+progressLevel(value)+'" role="progressbar" aria-label="'+esc(label)+'" aria-valuemin="0" aria-valuemax="100" '+(known?'aria-valuenow="'+value+'" ':'')+'aria-valuetext="'+esc(progressPercent(value)+'; opanowane/wysłane '+progressCounts(item))+'"><div class="lp-fill" style="'+(vertical?'height':'width')+':'+(known?Math.max(0,Math.min(100,value)):0)+'%"></div></div>';
 }
-function progressSetHtml(set){
+function progressDataDetails(item,isSet){
  const level={high:'wysoki',mid:'średni',low:'niski',unknown:'nieznany'};
- return '<article class="lp-set" data-progress-set="'+esc(set.setWeek)+'"><h2>Set '+esc(set.setWeek)+'</h2><p>'+(set.fullySent?'Wysłany w całości':'Wysyłka nieukończona')+' • Quizy: '+set.quizzesCompleted+'/'+set.plannedBatches+'</p><p>Opanowanie: '+progressPercent(set.masteryPercent)+' • '+progressCounts(set)+' opanowanych/wysłanych • poziom '+level[progressLevel(set.masteryPercent)]+'</p><p>Trudne: '+(set.difficultWords==null?'—':set.difficultWords)+'</p>'+progressBar(set,'Opanowanie setu '+set.setWeek,false)+(set.incomplete?'<p class="lp-note">Niekompletne dane historyczne.</p>':'')+(set.availabilityReason?'<p class="lp-note">'+esc(set.availabilityReason)+'</p>':'')+'<div class="lp-batches">'+set.batches.map(b=>'<article class="lp-batch" data-progress-batch="'+b.batch+'"><h3>Batch '+b.batch+'</h3>'+progressBar(b,'Set '+set.setWeek+', batch '+b.batch,true)+'<p>'+progressPercent(b.masteryPercent)+' • '+progressCounts(b)+' opanowanych/wysłanych</p><p>Poziom: '+level[progressLevel(b.masteryPercent)]+' • Trudne: '+(b.difficultWords==null?'—':b.difficultWords)+'</p><p>'+(b.completed?'Wykonany':b.fullySent?'Wysłany • quiz niewykonany':'Wysyłka nieukończona')+'</p>'+progressTrend(b)+(b.availabilityReason?'<p class="lp-note">'+esc(b.availabilityReason)+'</p>':'')+'</article>').join('')+'</div></article>';
+ return '<details class="lp-data"><summary>Szczegóły danych</summary><p>Opanowanie: '+progressPercent(item.masteryPercent)+' • '+progressCounts(item)+' opanowanych/wysłanych</p><p>Poziom: '+level[progressLevel(item.masteryPercent)]+' • Trudne: '+(item.difficultWords==null?'—':item.difficultWords)+'</p><p>'+(item.fullySent?'Wysłany w całości':'Wysyłka nieukończona')+(isSet?' • Quizy: '+item.quizzesCompleted+'/'+item.plannedBatches:item.completed?' • Wykonany':' • Quiz niewykonany')+'</p>'+(item.incomplete?'<p>Niekompletne dane historyczne.</p>':'')+(item.availabilityReason?'<p>'+esc(item.availabilityReason)+'</p>':'')+(!isSet&&item.trendPp==null?'<p>Trend: —. '+esc(item.trendReason||'Brak porównywalnych prób.')+'</p>':'')+'</details>';
+}
+function progressSetHtml(set,label){
+ return '<article class="lp-set" data-progress-set="'+esc(set.setWeek)+'"><div class="lp-set-head"><h2>Set '+esc(set.setWeek)+(label?'<span class="lp-set-label">('+esc(label)+')</span>':'')+'</h2><div class="lp-score lp-'+progressLevel(set.masteryPercent)+'"><strong>'+progressPercent(set.masteryPercent)+'</strong><span>opanowania</span></div></div>'+progressBar(set,'Opanowanie setu '+set.setWeek,false)+'<div class="lp-metrics"><div><strong>'+set.sentWords+'</strong><span>wysłanych słów</span></div><div class="lp-mastered"><strong>'+(set.masteredWords==null?'—':set.masteredWords)+'</strong><span>mastered</span></div><div class="lp-difficult"><strong>'+(set.difficultWords==null?'—':set.difficultWords)+'</strong><span>difficult</span></div></div><h3 class="lp-batches-title">Opanowanie batchy w secie '+esc(set.setWeek)+'</h3><div class="lp-batches" style="--lp-columns:'+Math.min(5,Math.max(1,set.batches.length))+'">'+set.batches.map(b=>'<article class="lp-batch" data-progress-batch="'+b.batch+'"><h3>Batch '+b.batch+'</h3><strong class="lp-batch-percent lp-'+progressLevel(b.masteryPercent)+'">'+progressPercent(b.masteryPercent)+'</strong>'+progressBar(b,'Set '+set.setWeek+', batch '+b.batch,true)+progressTrend(b)+'<strong class="lp-counts">'+progressCounts(b)+'</strong><span>mastered</span>'+progressDataDetails(b,false)+'</article>').join('')+'</div>'+progressDataDetails(set,true)+'</article>';
+}
+function progressCounterIcon(key){
+ const shapes={setsCompleted:'<path d="M2 9 16 3 30 9 16 15Z M2 16 16 22 30 16 M2 23 16 29 30 23"/>',batchesSent:'<rect x="7" y="3" width="18" height="26" rx="3"/><path d="M11 10h10 M11 16h10 M11 22h10"/>',quizzesCompleted:'<circle cx="16" cy="16" r="13"/><path d="m9 16 5 5 10-12"/>'};
+ return '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">'+shapes[key]+'</svg>';
 }
 function renderLearningProgress(progress){
  if(!progress||!progress.summary||!Array.isArray(progress.sets))throw new Error('Brak kontraktu postępu');
+ const labels={setsCompleted:'setów wykonanych',batchesSent:'batchy wysłanych',quizzesCompleted:'quizów wykonanych'};
+ if(Object.keys(labels).some(k=>!Number.isInteger(progress.summary[k])||progress.summary[k]<0))throw new Error('Błędne liczniki postępu');
  const sent=progress.sets.filter(s=>s.lastSentAt).slice().sort((a,b)=>new Date(b.lastSentAt)-new Date(a.lastSentAt)||b.setWeek-a.setWeek);
  learningProgressState.textContent=sent.length?(progress.incomplete?'Niektóre dane historyczne są niekompletne.':''):'Brak potwierdzonych wysłanych danych.'+(progress.incomplete?' Niekompletne dane historyczne.':'');
- const labels={setsCompleted:'Sety wykonane',batchesSent:'Batche wysłane',quizzesCompleted:'Quizy wykonane'};
- learningProgressContent.innerHTML='<div class="lp-counters">'+Object.keys(labels).map(k=>'<div class="lp-counter">'+labels[k]+'<strong data-progress-counter="'+k+'">'+progress.summary[k]+'</strong></div>').join('')+sent.slice(0,2).map(progressSetHtml).join('')+(sent.length>2?'<details id="learningProgressHistory"><summary>Pokaż wcześniejsze sety</summary>'+sent.slice(2).map(progressSetHtml).join('')+'</details>':'');
+ learningProgressContent.innerHTML='<div class="lp-counters">'+Object.keys(labels).map(k=>'<div class="lp-counter">'+progressCounterIcon(k)+'<strong data-progress-counter="'+k+'">'+progress.summary[k]+'</strong><span>'+labels[k]+'</span></div>').join('')+sent.slice(0,2).map((s,i)=>progressSetHtml(s,i===0?'aktualny':'poprzedni')).join('')+(sent.length>2?'<details id="learningProgressHistory"><summary>Pokaż wcześniejsze sety</summary>'+sent.slice(2).map(s=>'<details class="lp-history-set"><summary><span>Set '+esc(s.setWeek)+'</span><strong>'+progressPercent(s.masteryPercent)+'</strong></summary>'+progressSetHtml(s,'')+'</details>').join('')+'</details>':'')+'<div class="lp-legend" aria-label="Legenda postępu"><p>Opanowanie: zielony ≥ 90%; żółty ≥ 70% i &lt; 90%; czerwony &lt; 70%; — brak kompletnej oceny.</p><p>Trend: ↑ wzrost; → bez zmiany; ↓ spadek; — brak porównywalnych prób. Zmiana w punktach procentowych (pp).</p><p>mastered — słowa opanowane; difficult — słowa wymagające powtórki.</p></div>';
 }
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 </script>
 </body></html>
+
