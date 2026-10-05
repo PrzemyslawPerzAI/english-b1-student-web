@@ -628,6 +628,8 @@ async function browserVisualTests(browser){
      await test(`Chromium LP-14/15 columns and internal overflow width=${width} batches=${count}`,async()=>{
       await d.page.setViewportSize({width,height:1000});
       if(count===4||count===5)await capture(d.page,`reference-${count}-${width}`);
+      assert.equal(await d.page.locator('.lp-counters > .lp-counter').count(),3);
+      assert.equal(await d.page.locator('.lp-counters > .lp-set').count(),0,'Set cards must not become columns in the counter grid');
       await noOverflow(d.page);
       const grid=d.page.locator('[data-progress-set="8"] .lp-batches');
       const layout=await grid.evaluate(e=>({columns:getComputedStyle(e).gridTemplateColumns.split(' ').length,boxes:[...e.children].map(c=>{const r=c.getBoundingClientRect();return {x:r.x,y:r.y,bottom:r.bottom,width:r.width,font:parseFloat(getComputedStyle(c.querySelector('h3')).fontSize)}})}));
