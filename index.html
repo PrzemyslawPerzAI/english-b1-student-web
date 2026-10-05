@@ -125,6 +125,7 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
   <button id="learningProgressBtn" class="menu-card blue" onclick="showLearningProgress()"><span class="menu-icon" aria-hidden="true">📊</span><span class="menu-copy"><span class="menu-title">Status postępu nauki</span><span class="menu-sub">Historia setów i batchów</span></span><span class="chev" aria-hidden="true">›</span></button>
  </div>
  <div class="progress-card"><span class="progress-icon">🏆</span><div><div class="progress-title">Twój postęp</div><div id="progressText" class="progress-sub"></div></div></div>
+ <p id="dataRefreshTime" class="progress-sub" role="status">Dane odświeżono: —</p>
 </section>
 <section id="learningProgress" class="hidden" aria-labelledby="learningProgressTitle">
  <div class="page-head"><button id="learningProgressBack" class="back" aria-label="Powrót do ekranu głównego" onclick="returnFromLearningProgress()">‹</button><h1 id="learningProgressTitle" class="page-title" tabindex="-1">Status postępu nauki</h1></div>
@@ -143,6 +144,7 @@ h1{margin:0;font-size:clamp(36px,8vw,58px);line-height:1.05;letter-spacing:-1.5p
 </div>
 <script>
 let DATA=null,VOCAB_SCOPE='set',LEVEL_FILTERS={a:true,b1:true,b2:true};
+let lastValidDataTime=null,progressRequest=0,studentReadRequest=0;
 let COLLAPSED={words:{a:false,b1:false,b2:false},history:{a:false,b1:false,b2:false}};
 // External Student Web: visual shell is identical to the Apps Script version.
 const API_URL = '/api/student';
@@ -150,9 +152,25 @@ if (API_URL) loadData();
 else init({learner:'',setWeek:'—',words:[],currentSetWords:[],allSentWords:[],audioUrl:'',quizUrl:'',stats:{quizzesCompleted:0,latestQuizPercent:null,masteredTotal:0}});
 
 function loadData(){
-  fetch(API_URL,{credentials:'same-origin',cache:'no-store'})
-    .then(r=>{if(r.status===401){showLogin();return null}if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
-    .then(d=>{if(d)init(d)}).catch(fail);
+  return refreshStudentProgress().then(d=>{if(d)init(d,true)}).catch(fail);
+}
+function formatDataTime(value){
+ if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value))return null;
+ // Round-trip every calendar component: Date may normalize e.g. February 30.
+ const canonical=value.includes('.')?value.replace(/\.(\d+)Z$/,(_,fraction)=>'.'+fraction.slice(0,3).padEnd(3,'0')+'Z'):value.replace('Z','.000Z');
+ const date=new Date(canonical);
+ if(!Number.isFinite(date.getTime()))return null;
+ if(date.toISOString()!==canonical)return null;
+ return new Intl.DateTimeFormat('pl-PL',{timeZone:'Europe/Warsaw',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date);
+}
+function setDataTime(value){document.getElementById('dataRefreshTime').textContent='Dane odświeżono: '+(value||'—')}
+function restoreDataTime(){setDataTime(lastValidDataTime)}
+function acceptStudentData(d){
+ DATA=d;
+ const time=formatDataTime(d.dataGeneratedAt);
+ if(time!==null)lastValidDataTime=time;
+ setDataTime(time);
+ progressText.textContent='Set '+d.setWeek+' • '+d.stats.quizzesCompleted+' quizy • ostatni wynik '+(d.stats.latestQuizPercent==null?'—':d.stats.latestQuizPercent+'%')+' • '+d.stats.masteredTotal+' opanowanych';
 }
 function showLogin(){hidePages();loading.classList.add('hidden');error.classList.add('hidden');login.classList.remove('hidden');pin.focus()}
 loginForm.addEventListener('submit',function(e){
@@ -162,7 +180,7 @@ loginForm.addEventListener('submit',function(e){
     .then(()=>{login.classList.add('hidden');loading.classList.remove('hidden');pin.value='';loadData()})
     .catch(e=>{loginMsg.textContent=e.message||'Logowanie nieudane'});
 });
-function init(d){DATA=d;loading.classList.add('hidden');home.classList.remove('hidden');learner.textContent=d.learner?d.learner:'';progressText.textContent='Set '+d.setWeek+' • '+d.stats.quizzesCompleted+' quizy • ostatni wynik '+(d.stats.latestQuizPercent==null?'—':d.stats.latestQuizPercent+'%')+' • '+d.stats.masteredTotal+' opanowanych';setupLink('audioBtn',d.audioUrl?('/api/audio?setWeek='+encodeURIComponent(d.setWeek)+'&batch='+encodeURIComponent(d.batch)):'');setupLink('quizBtn',d.quizUrl)}
+function init(d,accepted=false){if(!accepted)acceptStudentData(d);loading.classList.add('hidden');home.classList.remove('hidden');learner.textContent=d.learner?d.learner:'';setupLink('audioBtn',d.audioUrl?('/api/audio?setWeek='+encodeURIComponent(d.setWeek)+'&batch='+encodeURIComponent(d.batch)):'');setupLink('quizBtn',d.quizUrl)}
 function setupLink(id,url){const e=document.getElementById(id);if(!e)return;if(url)e.href=url;else if(e.tagName==='A'){e.style.opacity='.45';e.style.pointerEvents='none';e.removeAttribute('href')}}
 function groups(){return[{key:'a',title:'UTRWALAM • A1–A2',cls:'level-a'},{key:'b1',title:'CEL B1',cls:'level-b1'},{key:'b2',title:'WYZWANIE • B2+',cls:'level-b2'}]}
 function wordHtml(w){return '<div class="word"><div class="word-head"><span class="en">'+esc(w.word)+'</span><button class="speak" onclick="event.stopPropagation();speakWord(\''+jsq(w.word)+'\')">🔊</button></div><div class="pl">'+esc(w.meaning)+'</div><div class="ex">'+esc(w.example)+'</div></div>'}
@@ -209,14 +227,18 @@ function jsq(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").r
 function hidePages(){['home','words','quiz','vocabularyHistory','learningProgress'].forEach(id=>document.getElementById(id).classList.add('hidden'))}
 function showHome(){if(window.speechSynthesis)speechSynthesis.cancel();hidePages();home.classList.remove('hidden');window.scrollTo(0,0)}
 function fail(e){loading.classList.add('hidden');error.classList.remove('hidden');error.textContent='Nie udało się załadować danych: '+(e.message||e)}
-let progressRequest=0,studentReadRequest=0;
 async function refreshStudentProgress(){
  const request=++studentReadRequest;
+ try{
  const response=await fetch(API_URL,{credentials:'same-origin',cache:'no-store'});
  if(request!==studentReadRequest)return null;
- if(response.status===401){showLogin();return null}
+ if(response.status===401){restoreDataTime();showLogin();return null}
  if(!response.ok)throw new Error('HTTP '+response.status);
- const data=await response.json();if(request!==studentReadRequest)return null;DATA=data;return data;
+ const data=await response.json();if(request!==studentReadRequest)return null;acceptStudentData(data);return data;
+ }catch(e){
+  if(request!==studentReadRequest)return null;
+  restoreDataTime();throw e;
+ }
 }
 async function showLearningProgress(){
  const request=++progressRequest;
