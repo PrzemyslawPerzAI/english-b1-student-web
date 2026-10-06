@@ -21,6 +21,26 @@ function fixture(second=true){
  }
  return {learner:'Synthetic',setWeek:2,batch:1,words:[{word:'fixture',meaning:'synthetic',level:'B1'}],currentSetWords:[],allSentWords:[],audioUrl:'',quizUrl:'',stats:{quizzesCompleted:1,latestQuizPercent:80,masteredTotal:4},quizQuestions:[{sourceNr:'1',word:'fixture',type:'FILL_GAP',number:1,question:'synthetic question',options:[],points:1}],learningProgress:{summary:{setsCompleted:3,batchesSent:11,quizzesCompleted:11},sets,incomplete:false}};
 }
+// New-contract fixtures are independent of backend aggregation and learner data.
+function partialFixture(assessed=1){
+ const d=fixture();
+ d.dataGeneratedAt='2026-01-15T09:15:00.000Z';
+ d.learningProgress.sets=[2,9,4,7].map((setWeek,index)=>{
+  const batches=Array.from({length:5},(_,i)=>{
+   const known=i<assessed,masteredWords=known?(i===0?2:0):null;
+   return {batch:i+1,plannedWords:20,sentWords:20,fullySent:true,quizCompleted:known,completed:known,
+    masteredWords,difficultWords:known?20-masteredWords:null,masteryPercent:known?masteredWords/20*100:null,
+    trendPp:null,trendReason:'Pierwsza próba lub brak historii prób.',historyComplete:known,incomplete:false,
+    availabilityReason:known?'':'Brak zatwierdzonej próby.'};
+  });
+  return {setWeek,batches,sentWords:100,masteredWords:assessed?2:0,difficultWords:assessed?20*assessed-2:0,
+   unassessedWords:100-20*assessed,masteryPercent:assessed?2:0,fullySent:true,quizzesCompleted:assessed,
+   plannedBatches:5,lastSentAt:`2026-01-0${4-index}T00:00:00.000Z`,incomplete:false,
+   availabilityReason:assessed<5?'Brak kompletnej historii opanowania wysłanych słów.':''};
+ });
+ d.learningProgress.summary={setsCompleted:4,batchesSent:20,quizzesCompleted:4*assessed};
+ return d;
+}
 // Values from the reference are confined to this independent synthetic fixture.
 function visualFixture(count=4){
  const d=fixture();
@@ -170,8 +190,65 @@ async function vmTests(){
    assert.deepEqual(plain(vm.runInContext('DATA',box)),before);assert.equal(e.dataRefreshTime.textContent,'Dane odświeżono: 10:15');assert.equal(e.home.classList.contains('hidden'),false);assert.equal(e.login.classList.contains('hidden'),true);assert.equal(e.focused,'learningProgressBtn');
   }
  });
+ await partialVmTests();
  await proxyTests();
  await timeTests(vmDriver,'VM');
+}
+async function partialVmTests(){
+ const {box,elements:e}=domBox();await tick();
+ await test('NEW LP-01–05/10 partial, complete, unassessed and historical set labels and aria',()=>{
+  for(const assessed of [0,1,4,5]){
+   const d=partialFixture(assessed);box.renderLearningProgress(d.learningProgress);const h=e.learningProgressContent.innerHTML;
+   assert.equal((h.match(/data-progress-set=/g)||[]).length,4);
+   assert.ok(h.indexOf('data-progress-set="2"')<h.indexOf('data-progress-set="9"'));
+   for(const set of d.learningProgress.sets){
+    const card=box.progressSetHtml(set,'');
+    assert.match(card,new RegExp('<strong>'+set.masteredWords+'</strong><span>mastered'));
+    assert.match(card,new RegExp('<strong>'+set.difficultWords+'</strong><span>difficult'));
+    if(assessed<5){
+     assert.match(card,/potwierdzonego opanowania/);assert.match(card,new RegExp('Ocena częściowa: '+assessed*20+' z 100 słów ocenionych'));
+     assert.match(card,new RegExp('Nieocenione: '+(100-assessed*20)));
+     const bar=box.progressBar(set,'set',false);assert.match(bar,new RegExp('aria-valuenow="'+(assessed?2:0)+'"'));
+     assert.match(bar,/aria-valuetext="[^"]*potwierdzonego opanowania[^"]*Ocena częściowa:/);
+     assert.match(box.progressDataDetails(set,true),/Potwierdzone opanowanie:/);
+     assert.equal(card.includes('Brak ocen; wszystkie wysłane słowa nieocenione'),assessed===0);
+     assert.match(h,/<summary><span>Set 4<\/span><strong class="lp-history-partial">[\s\S]*?<span>potwierdzonego opanowania<\/span><\/strong><\/summary>/);
+    }else{
+     assert.doesNotMatch(card,/potwierdzonego|Ocena częściowa|Nieocenione:|Brak ocen;/);assert.match(card,/<span>opanowania<\/span>/);
+    }
+    set.batches.forEach((b,i)=>{assert.equal(b.masteryPercent,i<assessed?(i?0:10):null);if(i>=assessed)assert.doesNotMatch(box.progressBar(b,'batch',true),/aria-valuenow|potwierdzonego/);});
+   }
+  }
+  const weighted={...partialFixture(1).learningProgress.sets[0],sentWords:60,masteredWords:10,difficultWords:20,unassessedWords:30,masteryPercent:10/60*100};
+  assert.match(box.progressSetHtml(weighted,''),/<strong>16,7%<\/strong>/);assert.match(box.progressSetHtml(weighted,''),/Ocena częściowa: 30 z 60 słów ocenionych/);
+  assert.match(box.progressSetHtml(weighted,''),/aria-label="Potwierdzone opanowanie setu 2"/);
+  const zero={...partialFixture(0).learningProgress.sets[0],sentWords:0,masteredWords:0,difficultWords:0,unassessedWords:0,masteryPercent:null,lastSentAt:null,batches:[]};
+  assert.match(box.progressSetHtml(zero,''),/<strong>—<\/strong>/);assert.doesNotMatch(box.progressSetHtml(zero,''),/NaN|Infinity|<strong>0%|aria-valuenow|Ocena częściowa/);
+  box.renderLearningProgress({summary:{setsCompleted:0,batchesSent:0,quizzesCompleted:0},sets:[zero]});assert.doesNotMatch(e.learningProgressContent.innerHTML,/data-progress-set=/);assert.match(e.learningProgressState.textContent,/Brak potwierdzonych/);
+ });
+ await test('NEW LP-09/11 contradictory reasons and independent old API are retained',()=>{
+  const full=fixture().learningProgress.sets[0],modern={...full,unassessedWords:0};
+  assert.equal(box.progressSetHtml(full,''),box.progressSetHtml(modern,''),'Full appearance and batch markup must remain identical');
+  const unknown={...full,masteredWords:null,difficultWords:null,masteryPercent:null,incomplete:true,availabilityReason:'Niekompletna lub nierozstrzygalna historia próby.'};
+  const h=box.progressSetHtml(unknown,'');assert.match(h,/<strong>—<\/strong>/);assert.match(h,/Niekompletna lub nierozstrzygalna/);assert.doesNotMatch(h,/Nieocenione:|Ocena częściowa|potwierdzonego|Brak ocen;/);
+  const contradictory={...partialFixture(0).learningProgress.sets[0],incomplete:true,availabilityReason:'Niekompletny plan lub potwierdzenie wysyłki.'};
+  const c=box.progressSetHtml(contradictory,'');assert.match(c,/Brak ocen; wszystkie wysłane słowa nieocenione/);assert.match(c,/Niekompletny plan lub potwierdzenie/);assert.match(c,/Niekompletne dane historyczne/);
+ });
+ await test('NEW LP-13/14 partial refresh, stale responses, failures and quiz DOM isolation',async()=>{
+  const quizSnapshot=()=>JSON.stringify(['quizList','quizResult','quizScore','quizFeedback'].map(k=>e[k]&&{html:e[k].innerHTML,text:e[k].textContent}));
+  const before=quizSnapshot();box.fetch=async()=>response(200,partialFixture(1));await box.showLearningProgress();assert.match(e.learningProgressContent.innerHTML,/Ocena częściowa: 20 z 100/);
+  let release;box.fetch=()=>new Promise(r=>release=r);const older=box.showLearningProgress();
+  box.fetch=async()=>response(200,partialFixture(4));await box.showLearningProgress();const accepted=e.learningProgressContent.innerHTML;
+  release(response(200,partialFixture(0)));await older;assert.equal(e.learningProgressContent.innerHTML,accepted);assert.match(accepted,/Ocena częściowa: 80 z 100/);
+  for(const status of [502,401]){
+   box.fetch=async()=>response(status,{});await box.showLearningProgress();assert.doesNotMatch(e.learningProgressContent.innerHTML,/data-progress-set=/);
+   if(status===401)assert.equal(e.login.classList.contains('hidden'),false);else assert.match(e.learningProgressState.textContent,/Nie udało/);
+   box.fetch=async()=>response(200,partialFixture(1));await box.showLearningProgress();
+  }
+  box.fetch=async()=>{throw Error('synthetic offline')};await box.showLearningProgress();assert.doesNotMatch(e.learningProgressContent.innerHTML,/data-progress-set=/);
+  box.fetch=async()=>response(200,partialFixture(5));await box.showLearningProgress();assert.doesNotMatch(e.learningProgressContent.innerHTML,/Ocena częściowa|Nieocenione:/);assert.equal(quizSnapshot(),before);
+  const snapshot=e.learningProgressContent.innerHTML;await box.showLearningProgress();assert.equal(e.learningProgressContent.innerHTML,snapshot);
+ });
 }
 const winter='2026-01-15T09:15:00.000Z',later='2026-01-15T09:20:00.000Z';
 const timeLabel=t=>'Dane odświeżono: '+t;
@@ -385,15 +462,16 @@ async function proxyTests(){
  await test('AC-12 real proxy/auth source with synthetic config and fully mocked upstream',async()=>{
   const env={STUDENT_PIN:'synthetic-pin',SESSION_SECRET:'synthetic-secret',STUDENT_BACKEND_URL:'https://synthetic.invalid/backend',STUDENT_API_SECRET:'synthetic-api-key'};
   const auth={module:{exports:{}},require:n=>{assert.equal(n,'crypto');return crypto;},process:{env},Buffer};vm.createContext(auth);vm.runInContext(fs.readFileSync(path.join(front,'api/_auth.js'),'utf8'),auth);
-  let upstream=0,reject=false;
+  let upstream=0,reject=false,payload=fixture();
   const proxy={module:{exports:{}},require:n=>{assert.equal(n,'./_auth');return auth.module.exports;},process:{env},console:{error(){}},fetch:async(url,options)=>{
    upstream++;assert.equal(url,'https://synthetic.invalid/backend');assert.equal(options.method,'POST');assert.deepEqual(JSON.parse(options.body),{action:'getStudentData',apiSecret:'synthetic-api-key'});
-   return response(200,reject?{ok:false,error:'Unauthorized.'}:{ok:true,data:fixture()});
+   return response(200,reject?{ok:false,error:'Unauthorized.'}:{ok:true,data:payload});
   }};vm.createContext(proxy);vm.runInContext(fs.readFileSync(path.join(front,'api/student.js'),'utf8'),proxy);
   const res=()=>({statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v},status(n){this.statusCode=n;return this},json(data){this.data=data;return this}});
   let r=res();await proxy.module.exports({method:'GET',headers:{}},r);assert.equal(r.statusCode,401);assert.equal(r.data.learningProgress,undefined);assert.equal(upstream,0);assert.equal(r.headers['Cache-Control'],'no-store');
   r=res();await proxy.module.exports({method:'GET',headers:{cookie:'student_session=ok.invalid'}},r);assert.equal(r.statusCode,401);assert.equal(upstream,0);
   const headers={cookie:auth.module.exports.sessionCookie()};r=res();await proxy.module.exports({method:'GET',headers},r);assert.equal(r.statusCode,200);assert.match(r.headers['Cache-Control'],/no-store/);assert.deepEqual(plain(r.data.learningProgress),fixture().learningProgress);
+  payload=partialFixture();r=res();await proxy.module.exports({method:'GET',headers},r);assert.equal(r.statusCode,200);assert.deepEqual(plain(r.data.learningProgress),payload.learningProgress);
   reject=true;r=res();await proxy.module.exports({method:'GET',headers},r);assert.equal(r.statusCode,502);assert.equal(r.data.learningProgress,undefined);assert.equal(r.data.diagnostic,'BACKEND_UNAUTHORIZED');
   r=res();await proxy.module.exports({method:'POST',headers},r);assert.equal(r.statusCode,405);
  });
@@ -620,6 +698,46 @@ async function browserVisualTests(browser){
   });assert.deepEqual(bad,[],'Internal overflow or clipping, including when global overflow-x is hidden');
  };
  try{
+  for(const assessed of [0,1,4,5]){
+   await test(`NEW Chromium LP-01–04/10/15 partial contract assessed batches=${assessed}`,async()=>{
+    const data=partialFixture(assessed),d=await browserDriver(browser,ok(data));try{
+     const quizBefore=await d.page.locator('#quiz').innerHTML();
+     d.plan.student.push(ok(data));await d.page.locator('#learningProgressBtn').focus();await d.page.keyboard.press('Enter');await d.page.locator('[data-progress-counter]').first().waitFor();
+     assert.equal(await d.page.locator('#learningProgressTitle').evaluate(e=>e===document.activeElement),true);
+     assert.deepEqual(await d.page.locator('[data-progress-set]').evaluateAll(es=>es.map(e=>Number(e.dataset.progressSet))),[2,9,4,7]);
+     const current=d.page.locator('[data-progress-set="2"]');
+     assert.equal(await current.locator('.lp-metrics > div').count(),3);
+     assert.deepEqual(await current.locator('.lp-metrics strong').allTextContents(),['100',assessed?'2':'0',assessed?String(20*assessed-2):'0']);
+     const aria=await current.locator(':scope > [role="progressbar"]').getAttribute('aria-valuetext');
+     if(assessed<5){
+      assert.match(aria,/potwierdzonego opanowania/);assert.ok(aria.includes(`Ocena częściowa: ${20*assessed} z 100 słów ocenionych`));
+      assert.ok((await current.locator('.lp-assessment').innerText()).includes(`Nieocenione: ${100-20*assessed}`));
+      assert.equal((await current.locator('.lp-assessment').innerText()).includes('Brak ocen; wszystkie wysłane słowa nieocenione'),assessed===0);
+      assert.equal(await current.locator(':scope > [role="progressbar"]').getAttribute('aria-valuenow'),assessed?'2':'0');
+      assert.equal(await current.locator('.lp-batch [role="progressbar"]:not([aria-valuenow])').count(),5-assessed);
+     }else{assert.doesNotMatch(aria,/potwierdzonego/);assert.equal(await current.locator('.lp-assessment').count(),0);}
+     const history=d.page.locator('#learningProgressHistory');await history.locator(':scope > summary').focus();await d.page.keyboard.press('Enter');assert.equal(await history.evaluate(e=>e.open),true);
+     const older=history.locator('.lp-history-set').first(),summary=older.locator(':scope > summary');
+     assert.equal((await summary.innerText()).includes('potwierdzonego opanowania'),assessed<5);
+     await summary.focus();await d.page.keyboard.press('Enter');assert.equal(await older.evaluate(e=>e.open),true);
+     for(const width of [320,375,540,1280])for(const zoom of [1,2]){
+      await d.page.setViewportSize({width,height:1000});await d.page.evaluate(z=>document.body.style.zoom=String(z),zoom);await noOverflow(d.page);
+      // Confirm score/header and metric cells cannot overlap at any stress width.
+      const layout=await current.evaluate(e=>{
+       const rect=x=>{const r=x.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom}};
+       return {head:[rect(e.querySelector('h2')),rect(e.querySelector('.lp-score'))],metrics:[...e.querySelector('.lp-metrics').children].map(rect)};
+      });
+      const separated=(a,b)=>a.right<=b.x+1||b.right<=a.x+1||a.bottom<=b.y+1||b.bottom<=a.y+1;
+      assert.ok(separated(...layout.head),`heading collision ${width}/${zoom}`);
+      layout.metrics.forEach((a,i)=>layout.metrics.slice(i+1).forEach(b=>assert.ok(separated(a,b),'metric collision')));
+      const key=`partial-${assessed}-${width}-zoom-${zoom}.png`;await d.page.locator('#learningProgress').screenshot({path:path.join(output,key),animations:'disabled'});proof.screenshots.push(key);proof.measurements.push({assessed,width,zoom,layout});
+     }
+     await d.page.evaluate(()=>document.body.style.zoom='1');await d.page.locator('#learningProgressBack').focus();await d.page.keyboard.press('Enter');assert.equal(await d.page.locator('#learningProgressBtn').evaluate(e=>e===document.activeElement),true);
+     assert.equal(await d.page.locator('#quiz').innerHTML(),quizBefore);
+     const updated=partialFixture(5);d.plan.student.push(ok(updated));await d.page.keyboard.press('Enter');await d.page.locator('[data-progress-counter]').first().waitFor();assert.equal(await d.page.locator('.lp-assessment').count(),0);
+    }finally{await d.close()}
+   });
+  }
   for(const count of visualBaseline.batchCounts){
    const data=visualFixture(count),d=await browserDriver(browser,ok(data));
    try{
